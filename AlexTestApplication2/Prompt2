@@ -1,0 +1,59 @@
+This is stuff I added to make improvements
+####################################################
+
+Improve UI:
+
+####################################################
+You are a senior R Shiny UI/UX engineer with experience designing modern, professional, public-facing web applications.
+
+Create a simple, interactive, and innovative R Shiny user interface inspired by the structure and feel of modern geospatial and innovation-focused websites (e.g., Woolpert Innovations).
+
+UI Requirements
+
+Use fluidPage() with a clean, professional theme (light background, modern typography)
+
+Include a hero-style landing section with a title, short subtitle, and call-to-action button
+
+Add a top navigation bar or tab-based layout that clearly separates content sections
+
+Sections should include:
+
+Overview / Introduction
+
+Interactive Map or Visualization area (placeholder OK)
+
+Projects or Features showcase (cards or panels)
+
+Contact or About section
+
+Layout should feel spacious, minimal, and corporate-professional
+
+Interactivity
+
+Use Shiny-native interactivity (tabs, buttons, hover effects, collapsible panels)
+
+Include placeholders for interactive content (Leaflet maps, Plotly charts, etc.)
+
+UI should be responsive and readable on desktop and tablet
+
+Design Expectations
+
+Minimal color palette (1–2 accent colors)
+
+Clear hierarchy (headline → subtext → content)
+
+Avoid clutter and excessive controls
+
+Use tags$div, tags$section, and CSS where appropriate
+
+Output Instructions
+
+change the original .R script you wrote to fit these needs
+
+####################################################
+
+Make the text on the buttons white no matter the situation
+
+####################################################
+
+It wouldnt let me submit a form, it says  Error: Failed to submit: Client error: (403) PERMISSION_DENIED. Make this simpler.
