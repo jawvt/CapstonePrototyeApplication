@@ -1,0 +1,10 @@
+How it looks - find the class name on the element, go to that class in app_css, edit there
+
+What it says - find the tags$ element in the UI section, edit the text string inside it
+
+What data it shows - find the corresponding render function in the server section
+
+Move the CSS code into styles.css file in the www folder
+then replacet ags$style(HTML(app_css)) with 
+tags$link(rel = "stylesheet", href = "styles.css")
+when done developing

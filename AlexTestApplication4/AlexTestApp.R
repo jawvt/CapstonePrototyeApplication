@@ -60,7 +60,7 @@ save_data <- function(data, file_path) saveRDS(data, file_path)
 # How can we make this dynamic?
 ############################################
 
-paintings_csv <- "/Users/jawvt/Documents/Capstone/CapstonePrototyeApplication/AlexTestApplication4/BeirdstadtPaintings.csv"
+paintings_csv <- "/Users/jawvt/Documents/Capstone/CapstonePrototyeApplication/AlexTestApplication4/BPaintings.csv"
 paintings_data <- read.csv(paintings_csv, stringsAsFactors = FALSE)
 
 ############################################
@@ -170,11 +170,6 @@ body {
 
   z-index: 999;
   /* Ensure navbar stays above other elements */
-}
-
-.navbar-brand {
-  display: none !important;
-  /* Hide the brand/logo for a cleaner look */
 }
 
 .navbar-nav .nav-link {
@@ -1703,7 +1698,7 @@ table.dataTable thead th {
 
   .section-header { padding: 40px 20px 30px; }
   /* Adjusts section header spacing for mobile screens */
-
+}
 
 /* #########################################
    SHINY SPECIFIC OVERRIDES
@@ -1735,3 +1730,918 @@ table.dataTable thead th {
 }
 "
 
+################################################################################
+# UI SECTION
+################################################################################
+
+ui <- page_navbar(
+  
+  useShinyjs(),
+  # useShinyjs() activates the shinyjs package, which lets the server send
+  # JavaScript commands to the browser.
+  
+  title = NULL,
+  # Setting title to NULL hides the default app title in the navbar.
+  
+  id = "main_tabs",
+  # Gives the navbar an ID so the server can detect which tab is currently active.
+  # In the server you'll see: input$main_tabs
+  
+  theme = bs_theme(
+    # bs_theme() customizes the visual appearance using Bootstrap 5.
+    
+    version = 5,
+    # Use Bootstrap version 5.
+    
+    bg = "#FBF8F3",  # Background color (cream/off-white)
+    fg = "#2D2D2D",  # Foreground/text color (dark charcoal)
+    primary = "#C2714F",   # Primary accent color (terra/orange-brown)
+    secondary = "#6B8F71", # Secondary accent color (sage green)
+    success = "#6B8F71",   # Color used for "success" alerts (sage green)
+    info = "#D4A843",      # Color used for "info" alerts (amber/gold)
+    
+    base_font = font_google("DM Sans"),
+    # Loads the "DM Sans" font from Google Fonts for body text.
+    
+    heading_font = font_google("DM Serif Display")
+    # Loads "DM Serif Display" from Google Fonts for headings/titles.
+  ),
+  
+  header = tags$head(
+    # tags$head() injects content into the HTML <head> tag.
+    # This is where you load external resources and styles.
+    
+    tags$link(href = "https://fonts.googleapis.com/...", rel = "stylesheet"),
+    # Loads the Google Fonts stylesheet so DM Sans and DM Serif Display
+    # are available in the browser.
+    
+    tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
+    # This meta tag makes the app responsive on mobile devices —
+    # it tells the browser to scale the page to the device width.
+    
+    tags$style(HTML(app_css))
+    # Injects the custom CSS string (defined earlier as app_css) into the page.
+  ),
+  
+  
+  # ── TAB 1: HOME ──────────────────────────────────────────────────────────
+  # The landing/hero page with a large banner, a tagline, two call-to-action
+  # buttons, and a stats strip showing live submission counts.
+  nav_panel(
+    title = "Home",
+    icon = icon("mountain-sun"),
+    # icon() uses Font Awesome icons. "mountain-sun" shows a mountain with sun icon.
+    
+    tags$div(class = "hero-banner",
+             # A full-screen banner section styled with the CSS class "hero-banner".
+             
+             tags$div(class = "hero-bg-pattern"),
+             # A decorative dot pattern layered behind the content (pure CSS, no content).
+             
+             tags$div(class = "hero-glow hero-glow-1"),
+             tags$div(class = "hero-glow hero-glow-2"),
+             tags$div(class = "hero-glow hero-glow-3"),
+             # Three decorative colored blurs (glows) for visual depth. Pure CSS effects.
+             
+             tags$div(class = "hero-inner",
+                      # The centered content area inside the banner.
+                      
+                      tags$h1(class = "hero-title", HTML("Landscape<br>Through <span>Time</span>")),
+                      # The main title. HTML() lets us use raw HTML tags like <br> and <span>.
+                      # The <span> around "Time" gets a gradient color treatment via CSS.
+                      
+                      tags$p(class = "hero-subtitle",
+                             "Journey through 150 years of Western landscapes. Compare Albert Bierstadt's iconic paintings with modern photographs from the same locations."
+                      ),
+                      # Subtitle/description text below the main title.
+                      
+                      tags$div(class = "hero-actions",
+                               actionButton("go_gallery", HTML("View the Collection &rarr;"), class = "btn-terra"),
+                               # A button with ID "go_gallery". When clicked, the server detects
+                               # input$go_gallery and navigates to the Gallery tab.
+                               # &rarr; is the HTML code for a right arrow →.
+                               
+                               actionButton("go_submit", "Contribute a Photo", class = "btn-sage")
+                               # A second button that navigates to the Submit tab.
+                      ),
+                      
+                      tags$div(class = "stats-strip",
+                               # A three-column strip at the bottom of the hero showing live stats.
+                               
+                               tags$div(class = "stat-item",
+                                        tags$div(class = "stat-value", as.character(nrow(paintings_data))),
+                                        
+                                        tags$div(class = "stat-label", "Locations")
+                               ),
+                               
+                               tags$div(class = "stat-item",
+                                        tags$div(class = "stat-value", textOutput("stat_submissions", inline = TRUE)),
+                                        # textOutput() displays a reactive value from the server.
+                                        # "stat_submissions" is updated live whenever a new submission is added.
+                                        # inline = TRUE means it renders as inline text, not a block.
+                                        tags$div(class = "stat-label", "Submissions")
+                               ),
+                               
+                               tags$div(class = "stat-item",
+                                        tags$div(class = "stat-value", textOutput("stat_approved", inline = TRUE)),
+                                        # Same as above but for approved comparisons.
+                                        tags$div(class = "stat-label", "Comparisons")
+                               )
+                      )
+             )
+    )
+  ),
+  
+  
+  # ── TAB 2: GALLERY ───────────────────────────────────────────────────────
+  # Displays all Bierstadt paintings as clickable cards. Clicking opens a
+  # fullscreen lightbox with a Ken Burns zoom animation.
+  nav_panel(
+    title = "Gallery",
+    icon = icon("images"),
+    
+    tags$div(class = "section-header",
+             tags$h2("The Collection"),
+             tags$p("Click any painting to explore it in full detail with Ken Burns animation."),
+             tags$div(class = "accent-line")
+             # accent-line is a small decorative horizontal line rendered via CSS.
+    ),
+    
+    tags$div(class = "gallery-wrap",
+             tags$div(id = "paintings-container", class = "paintings-grid",
+                      uiOutput("painting_cards")
+                      # uiOutput() is a placeholder that gets filled in by the server.
+                      # The server generates each painting card dynamically from the CSV data.
+             )
+    )
+  ),
+  
+  
+  # ── TAB 3: MAP ──────────────────────────────────────────────────────────
+  # An interactive Leaflet map showing pins at each painting's real-world
+  # location. Clicking a pin shows the painting title, artist, and year.
+  nav_panel(
+    title = "Map",
+    icon = icon("map-location-dot"),
+    
+    tags$div(class = "section-header",
+             tags$h2("Explore Locations"),
+             tags$p("See where Bierstadt set up his easel across the American West."),
+             tags$div(class = "accent-line")
+    ),
+    
+    tags$div(class = "map-wrap",
+             tags$div(class = "map-container",
+                      leafletOutput("main_map", height = "100%")
+                      # leafletOutput() is the placeholder for the interactive map.
+                      # The actual map is rendered by the server using renderLeaflet().
+                      # height = "100%" makes it fill the map-container div.
+             )
+    )
+  ),
+  
+  
+  # ── TAB 4: SUBMIT ──────────────────────────────────────────────────────
+  # A form where visitors upload a modern photo from a Bierstadt location.
+  # They can optionally add their name, email, GPS coordinates, and observations.
+  nav_panel(
+    title = "Submit",
+    icon = icon("camera"),
+    
+    tags$div(class = "section-header",
+             tags$h2("Contribute Your Photo"),
+             tags$p("Visit a Bierstadt painting location and share what it looks like today."),
+             tags$div(class = "accent-line")
+    ),
+    
+    tags$div(class = "form-wrap",
+             tags$div(class = "form-card",
+                      
+                      uiOutput("submit_message"),
+                      # Placeholder for success or error messages shown after form submission.
+                      # The server controls whether to show a green success or red error alert.
+                      
+                      tags$div(class = "form-group",
+                               textInput("submit_name", "Your Name (optional)", placeholder = "Jane Doe")
+                               # textInput() creates a text field. First arg is the input ID,
+                               # second is the label shown above the field, third is the greyed-out
+                               # placeholder text inside the field.
+                      ),
+                      
+                      tags$div(class = "form-group",
+                               textInput("submit_email", "Email (optional)", placeholder = "jane@university.edu")
+                      ),
+                      
+                      tags$div(class = "form-group",
+                               selectInput("submit_painting", "Which location did you visit?",
+                                           choices = c("Select a location..." = "", setNames(paintings_data$id, paintings_data$title)))
+                               # selectInput() creates a dropdown menu.
+                               # setNames(paintings_data$id, paintings_data$title) pairs each painting's
+                               # ID (the value sent to the server) with its title (the text shown to users).
+                               # The empty string "" is the default "please select" option.
+                      ),
+                      
+                      tags$div(class = "form-group",
+                               tags$label("Upload Your Photo"),
+                               tags$div(class = "upload-zone",
+                                        # upload-zone is a styled dashed box for the file upload area.
+                                        tags$div(class = "upload-icon", HTML("&#128247;")),
+                                        # &#128247; is the HTML code for the 📷 camera emoji.
+                                        tags$p(style = "...", "Drag & drop or click to browse"),
+                                        fileInput("submit_photo", NULL, accept = c("image/png", "image/jpeg", "image/jpg"))
+                                        # fileInput() creates the file upload control.
+                                        # accept limits which file types the browser's file picker shows.
+                                        # NULL for the label means no label text — it's handled by the tags above.
+                               )
+                      ),
+                      
+                      tags$div(style = "display: grid; grid-template-columns: 1fr 1fr; gap: 16px;",
+                               # An inline CSS grid to place Latitude and Longitude fields side-by-side.
+                               
+                               tags$div(class = "form-group",
+                                        numericInput("submit_latitude", "Latitude", value = NA, step = 0.0001)
+                                        # numericInput() creates a number field. value = NA starts it empty.
+                                        # step = 0.0001 sets how much the value changes when using arrow keys.
+                               ),
+                               tags$div(class = "form-group",
+                                        numericInput("submit_longitude", "Longitude", value = NA, step = 0.0001)
+                               )
+                      ),
+                      
+                      tags$div(class = "form-group",
+                               textAreaInput("submit_observations", "Observations (optional)", rows = 3,
+                                             placeholder = "What did you notice about how the landscape has changed?")
+                               # textAreaInput() is like textInput but multi-line. rows = 3 sets the height.
+                      ),
+                      
+                      actionButton("submit_button", HTML("Submit Photo &rarr;"), class = "btn-submit")
+                      # The submit button. When clicked, the server's observeEvent(input$submit_button)
+                      # block runs to validate the form and save the data.
+             )
+    )
+  ),
+  
+  
+  # ── TAB 5: COMPARE ─────────────────────────────────────────────────────
+  # Shows a grid of approved submissions as thumbnails. Clicking one opens
+  # a side-by-side lightbox comparing the original painting with the modern photo.
+  nav_panel(
+    title = "Compare",
+    icon = icon("arrows-left-right"),
+    
+    tags$div(class = "section-header",
+             tags$h2("Past vs Present"),
+             tags$p("See how these landscapes have transformed over 150 years. Click to open side-by-side."),
+             tags$div(class = "accent-line")
+    ),
+    
+    tags$div(class = "comparison-wrap",
+             uiOutput("comparison_gallery")
+             # Placeholder filled by the server. If no approved submissions exist,
+             # it shows a "be the first to contribute" message. Otherwise it
+             # generates a grid of clickable thumbnail cards.
+    )
+  ),
+  
+  
+  # ── SPACER ──────────────────────────────────────────────────────────────
+  nav_spacer(),
+  # Pushes everything after it (the Login tab) to the far right of the navbar.
+  
+  
+  # ── TAB 6: LOGIN ───────────────────────────────────────────────────────
+  # Admin-only tab. Shows a password form by default. On correct login,
+  # shows a data table of all submissions with approve/reject buttons.
+  nav_panel(
+    title = "Admin Login",
+    icon = icon("right-to-bracket"),
+    
+    tags$div(class = "section-header",
+             tags$h2("Admin Login"),
+             tags$p("Sign in to review and manage community submissions."),
+             tags$div(class = "accent-line")
+    ),
+    
+    tags$div(class = "admin-wrap",
+             
+             conditionalPanel(
+               condition = "output.admin_authenticated == false",
+               # conditionalPanel() shows/hides its contents based on a JavaScript condition.
+               # Here: show the login form only when the user is NOT authenticated.
+               # output.admin_authenticated is a reactive value set by the server.
+               
+               tags$div(class = "admin-login-card",
+                        tags$h3("Sign In"),
+                        tags$p("Enter admin credentials to manage submissions."),
+                        passwordInput("admin_password", NULL, placeholder = "Password"),
+                        # passwordInput() is like textInput but hides the characters as dots.
+                        actionButton("admin_login", "Sign In", class = "btn-submit")
+                        # When clicked, the server checks if the password matches "admin123".
+               )
+             ),
+             
+             conditionalPanel(
+               condition = "output.admin_authenticated == true",
+               # Show the admin panel only when the user IS authenticated.
+               
+               tags$div(class = "admin-toolbar",
+                        actionButton("refresh_admin", "Refresh", class = "btn btn-refresh"),
+                        # Reloads submissions data from disk in case changes were made elsewhere.
+                        
+                        actionButton("approve_submission", "Approve Selected", class = "btn btn-approve"),
+                        # Approves the row selected in the table below, moving it to the
+                        # approved data file so it appears in the Compare tab.
+                        
+                        actionButton("reject_submission", "Reject Selected", class = "btn btn-reject")
+                        # Marks the selected row as "Rejected" in the submissions file.
+               ),
+               
+               DTOutput("admin_table")
+               # DTOutput() is a placeholder for a DataTables interactive table.
+               # The server renders it with renderDT(), showing all submissions.
+             )
+    )
+  ),
+  
+  
+  # ── LIGHTBOXES AND JAVASCRIPT ───────────────────────────────────────────
+  # These elements are always present in the HTML but hidden by default.
+  # The JavaScript functions below control when they appear.
+  footer = tagList(
+    
+    # ── PAINTING LIGHTBOX ──────────────────────────────────────────────
+    # A full-screen overlay that appears when a painting card is clicked.
+    tags$div(id = "lightbox",
+             tags$div(class = "lightbox-content",
+                      
+                      tags$div(class = "lightbox-close", onclick = "closeLightbox()", HTML("&times;")),
+                      # The × close button. onclick calls the JS closeLightbox() function.
+                      # &times; is the HTML code for the × symbol.
+                      
+                      tags$div(class = "lightbox-image-container",
+                               tags$img(id = "lightbox-img", class = "lightbox-image", src = "")
+                               # The image starts with an empty src="". The JS openLightbox() function
+                               # fills in the correct image URL when a card is clicked.
+                      ),
+                      
+                      tags$div(class = "lightbox-info",
+                               tags$h3(id = "lightbox-title"),
+                               # These empty elements get filled by JS with the painting's title,
+                               # artist/year metadata, and descriptive context text.
+                               tags$p(id = "lightbox-meta", class = "meta"),
+                               tags$p(id = "lightbox-context", class = "context")
+                      )
+             )
+    ),
+    
+    # ── COMPARISON LIGHTBOX ────────────────────────────────────────────
+    # A full-screen side-by-side view. Left = historical painting, Right = modern photo.
+    tags$div(id = "comparison-lightbox",
+             tags$div(class = "lightbox-close", onclick = "closeComparisonLightbox()",
+                      style = "position: fixed; top: 24px; right: 24px; z-index: 10002;", HTML("&times;")),
+             
+             tags$div(class = "comparison-container",
+                      tags$div(class = "comparison-side",
+                               tags$div(class = "comparison-label", "Historical"),
+                               tags$img(id = "comp-historical", src = "", draggable = "false")
+                               # draggable = "false" prevents the browser's default image drag behavior.
+                      ),
+                      tags$div(class = "comparison-side",
+                               tags$div(class = "comparison-label", "Present Day"),
+                               tags$img(id = "comp-modern", src = "", draggable = "false")
+                      )
+             )
+    ),
+    
+    # ── JAVASCRIPT ─────────────────────────────────────────────────────
+    # All the client-side interactivity: lightbox open/close, 3D card tilt,
+    # tab switching, and fixing the Leaflet map rendering bug in tabs.
+    tags$script(HTML(paste0("
+
+      // paintingsData is the CSV data injected from R into JavaScript as JSON.
+      // This lets JS look up painting details (image URL, title, etc.) by ID.
+      var paintingsData = ", jsonlite::toJSON(paintings_data, auto_unbox = TRUE), ";
+
+      // Opens the painting lightbox for the painting with the given ID.
+      window.openLightbox = function(id) {
+        var p = paintingsData.find(function(x) { return x.id === id; });
+        // .find() searches the array for the painting whose id matches.
+        if (!p) return;
+        // If no match found, do nothing.
+
+        document.getElementById('lightbox-img').src = p.image_url;
+        // Sets the lightbox image to this painting's URL.
+        document.getElementById('lightbox-title').textContent = p.title;
+        document.getElementById('lightbox-meta').textContent = p.artist + ' \u2022 ' + p.year;
+        // \u2022 is the Unicode bullet point character •
+        document.getElementById('lightbox-context').textContent = p.context;
+        document.getElementById('lightbox').classList.add('active');
+        // Adding the 'active' class triggers the CSS to show the lightbox.
+        document.body.style.overflow = 'hidden';
+        // Prevents the page from scrolling while the lightbox is open.
+      };
+
+      window.closeLightbox = function() {
+        document.getElementById('lightbox').classList.remove('active');
+        // Removing 'active' hides the lightbox again.
+        document.body.style.overflow = '';
+        // Restores normal page scrolling.
+      };
+
+      // Opens the comparison lightbox with two images side by side.
+      window.openComparisonLightbox = function(historicalUrl, modernUrl) {
+        document.getElementById('comp-historical').src = historicalUrl;
+        document.getElementById('comp-modern').src = modernUrl;
+        document.getElementById('comparison-lightbox').classList.add('active');
+        document.body.style.overflow = 'hidden';
+
+        // Adds scroll-to-zoom behavior on both images simultaneously.
+        var sides = document.querySelectorAll('.comparison-side img');
+        sides.forEach(function(img) {
+          img.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            // Prevents the page from scrolling when the user scrolls over the image.
+            var current = parseFloat(img.style.transform.replace('scale(', '').replace(')', '') || 1);
+            var delta = e.deltaY * -0.01;
+            var scale = Math.max(1, Math.min(3, current + delta));
+            // Clamp zoom between 1x (normal) and 3x (maximum zoom).
+            sides.forEach(function(s) { s.style.transform = 'scale(' + scale + ')'; });
+            // Apply the same zoom level to BOTH images so they stay in sync.
+          });
+        });
+      };
+
+      window.closeComparisonLightbox = function() {
+        document.getElementById('comparison-lightbox').classList.remove('active');
+        document.body.style.overflow = '';
+      };
+
+      // Pressing Escape closes whichever lightbox is open.
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') { closeLightbox(); closeComparisonLightbox(); }
+      });
+
+      // ── 3D CARD TILT EFFECT ──────────────────────────────────────────
+      // As the mouse moves over a painting card, it tilts in 3D toward the cursor.
+      function initTilt() {
+        document.querySelectorAll('.painting-card').forEach(function(card) {
+          card.addEventListener('mousemove', function(e) {
+            var rect = card.getBoundingClientRect();
+            // getBoundingClientRect() returns the card's position and size on screen.
+            var x = e.clientX - rect.left;
+            var y = e.clientY - rect.top;
+            // x and y = mouse position relative to the top-left of the card.
+            var rotX = (y - rect.height / 2) / 25;
+            var rotY = (rect.width / 2 - x) / 25;
+            // Calculate rotation angles. Dividing by 25 keeps the tilt subtle.
+            card.style.transform = 'perspective(800px) rotateX(' + rotX + 'deg) rotateY(' + rotY + 'deg) translateY(-6px)';
+            // Apply the 3D transform. perspective(800px) sets how dramatic the 3D effect looks.
+          });
+          card.addEventListener('mouseleave', function() {
+            card.style.transform = '';
+            // Reset the card to its normal flat state when the mouse leaves.
+          });
+        });
+      }
+
+      // Re-run initTilt() after Shiny re-renders the painting cards,
+      // because new DOM elements won't have the event listeners yet.
+      $(document).on('shiny:value', function(e) {
+        if (e.name === 'painting_cards') {
+          setTimeout(initTilt, 100);
+          // 100ms delay gives the DOM time to finish rendering before we attach listeners.
+        }
+      });
+      setTimeout(initTilt, 500);
+      // Also run once 500ms after page load for the initial render.
+
+      // ── TAB SWITCHING FROM R ─────────────────────────────────────────
+      // This handler listens for messages sent from the R server via
+      // session$sendCustomMessage('switchTab', 'Gallery').
+      // It then simulates a click on the matching navbar tab link.
+      Shiny.addCustomMessageHandler('switchTab', function(tab) {
+        var tabLink = document.querySelector('a.nav-link[data-value=\"' + tab + '\"]');
+        if (tabLink) tabLink.click();
+      });
+
+      // ── LEAFLET MAP FIX ──────────────────────────────────────────────
+      // Leaflet maps don't render correctly when inside a hidden tab because
+      // they calculate their size when the tab isn't visible yet (size = 0).
+      // This fix fires a window resize event after the Map tab becomes visible,
+      // which tells Leaflet to recalculate and correctly fill the container.
+      $(document).on('shown.bs.tab', function(e) {
+        if (e.target && e.target.getAttribute('data-value') === 'Map') {
+          setTimeout(function() {
+            window.dispatchEvent(new Event('resize'));
+          }, 250);
+        }
+      });
+    ")))
+  )
+)
+
+
+################################################################################
+# SERVER SECTION
+# The server is the "back end" — it contains all the logic that responds to
+# user actions, reads/writes data, and generates dynamic content.
+# It receives three arguments automatically from Shiny:
+#   input  — all current values from UI widgets (buttons, text fields, etc.)
+#   output — where you attach rendered content to send back to the UI
+#   session — the connection to the current user's browser session
+################################################################################
+
+server <- function(input, output, session) {
+  
+  # ── REACTIVE VALUES ───────────────────────────────────────────────────────
+  # reactiveValues() creates a shared "state" object that any part of the server
+  # can read or write. Whenever a value changes, anything that depends on it
+  # automatically re-runs (like a spreadsheet cell formula updating).
+  rv <- reactiveValues(
+    admin_auth = FALSE,
+    # Tracks whether the admin has successfully logged in. Starts as FALSE.
+    
+    submission_success = FALSE,
+    # Tracks whether the last form submission was successful.
+    
+    submission_error = NULL,
+    # Stores an error message string if submission failed. NULL means no error.
+    
+    submissions = load_data(SUBMISSIONS_FILE),
+    # Loads all existing submissions from disk on startup.
+    
+    approved = load_data(APPROVED_FILE)
+    # Loads all approved submissions from disk on startup.
+  )
+  
+  
+  # ── HERO BUTTON NAVIGATION ───────────────────────────────────────────────
+  # These two blocks listen for clicks on the hero buttons and tell the browser
+  # to switch to the appropriate tab using a custom JavaScript message.
+  observeEvent(input$go_gallery, {
+    # observeEvent() runs its code block whenever the specified input changes/fires.
+    # input$go_gallery is triggered when the "View the Collection" button is clicked.
+    session$sendCustomMessage("switchTab", "Gallery")
+    # Sends a message to the JS handler named "switchTab", passing "Gallery" as the value.
+  })
+  observeEvent(input$go_submit, {
+    session$sendCustomMessage("switchTab", "Submit")
+  })
+  
+  
+  # ── STATS DISPLAY ────────────────────────────────────────────────────────
+  # These render the live submission counts shown in the hero stats strip.
+  output$stat_submissions <- renderText({ as.character(nrow(rv$submissions)) })
+  # nrow() counts how many rows are in the submissions data frame.
+  # as.character() converts the number to a string for display.
+  # This automatically re-runs whenever rv$submissions changes.
+  
+  output$stat_approved <- renderText({ as.character(nrow(rv$approved)) })
+  
+  
+  # ── PAINTING CARDS ────────────────────────────────────────────────────────
+  # Dynamically generates one HTML card per painting from the CSV data.
+  output$painting_cards <- renderUI({
+    # renderUI() generates HTML content dynamically. The result fills the
+    # uiOutput("painting_cards") placeholder in the UI.
+    
+    cards <- lapply(1:nrow(paintings_data), function(i) {
+      # lapply() loops over each row index and returns a list of HTML elements.
+      p <- paintings_data[i, ]
+      # p is a single row from the paintings data frame.
+      
+      tags$div(class = "painting-card", onclick = sprintf("openLightbox(%d)", p$id),
+               # sprintf() builds a JavaScript call string like: openLightbox(3)
+               # So clicking this card calls the JS function with this painting's ID.
+               
+               tags$div(class = "painting-card-img-wrap",
+                        tags$img(src = p$image_url, class = "painting-image", alt = p$title),
+                        # The painting image. src comes from the CSV's image_url column.
+                        # alt text is used by screen readers and shown if the image fails to load.
+                        tags$div(class = "painting-card-badge", p$year)
+                        # A small badge showing the year, positioned over the image corner via CSS.
+               ),
+               
+               tags$div(class = "painting-info",
+                        tags$h3(class = "painting-title", p$title),
+                        tags$div(class = "painting-meta", paste0(p$artist, " \u2022 ", p$year)),
+                        # paste0() joins strings with no separator. \u2022 is the • bullet character.
+                        tags$p(class = "painting-context", p$context),
+                        tags$div(class = "painting-card-cta", HTML("View Full &rarr;"))
+                        # &rarr; is HTML for the → right arrow character.
+               )
+      )
+    })
+    
+    tagList(cards)
+    # tagList() combines the list of card elements into a single HTML fragment
+    # that Shiny can render as one unit.
+  })
+  
+  
+  # ── MAP ──────────────────────────────────────────────────────────────────
+  # Renders the interactive Leaflet map with a marker for each painting location.
+  output$main_map <- renderLeaflet({
+    leaflet(paintings_data) %>%
+      # leaflet() initializes the map, using paintings_data as its data source.
+      # The %>% pipe passes the result forward to the next function.
+      
+      addTiles() %>%
+      # addTiles() adds the default OpenStreetMap tile layer (the map background).
+      
+      addMarkers(
+        lng = ~longitude, lat = ~latitude,
+        # The ~ means "use this column from the data". These set marker positions.
+        label = ~title,
+        # label is the text that appears when you hover over a marker.
+        popup = ~paste0("<b>", title, "</b><br>", artist, ", ", year)
+        # popup is the HTML shown when you click a marker. <b> bolds the title.
+        # <br> is a line break. This produces: "Title\nArtist, Year"
+      ) %>%
+      
+      fitBounds(
+        lng1 = min(paintings_data$longitude) - 2, lat1 = min(paintings_data$latitude) - 2,
+        lng2 = max(paintings_data$longitude) + 2, lat2 = max(paintings_data$latitude) + 2
+        # fitBounds() auto-zooms the map to show all markers.
+        # The -2/+2 adds a small padding margin around the outermost markers.
+      )
+  })
+  
+  outputOptions(output, "main_map", suspendWhenHidden = FALSE)
+  # By default, Shiny pauses rendering outputs that are in hidden tabs to save resources.
+  # suspendWhenHidden = FALSE keeps the map rendered even when the Map tab isn't visible.
+  # This prevents a blank map the first time the user clicks the tab.
+  
+  # Triggers a window resize event when the Map tab is opened.
+  observeEvent(input$main_tabs, {
+    # input$main_tabs contains the title of whichever tab is currently active.
+    if (input$main_tabs == "Map") {
+      shinyjs::delay(200, {
+        # delay() waits 200 milliseconds before running the code inside.
+        shinyjs::runjs("window.dispatchEvent(new Event('resize'));")
+        # runjs() executes JavaScript in the browser. This fires a resize event,
+        # which tells the Leaflet map to redraw itself at the correct size.
+      })
+    }
+  })
+  
+  
+  # ── SUBMISSION FORM MESSAGES ─────────────────────────────────────────────
+  # Renders a success or error alert above the form after a submission attempt.
+  output$submit_message <- renderUI({
+    if (rv$submission_success) {
+      tags$div(class = "alert-success-custom",
+               HTML("&#10003; Photo submitted successfully! It's pending admin review.")
+               # &#10003; is the HTML code for the ✓ checkmark character.
+      )
+    } else if (!is.null(rv$submission_error)) {
+      # !is.null() checks that there IS an error message stored.
+      tags$div(class = "alert-error-custom",
+               HTML(paste0("&#10007; ", rv$submission_error))
+               # &#10007; is the ✗ cross/X character. paste0 appends the error message.
+      )
+    }
+    # If neither condition is true, renderUI returns nothing (no message shown).
+  })
+  
+  
+  # ── FORM SUBMISSION HANDLER ───────────────────────────────────────────────
+  # Runs when the Submit button is clicked. Validates all fields, then saves
+  # the submission to disk if everything is valid.
+  observeEvent(input$submit_button, {
+    
+    # Reset any previous success/error state before processing.
+    rv$submission_success <- FALSE
+    rv$submission_error <- NULL
+    
+    # ── VALIDATION ──────────────────────────────────────────────────────
+    # Check each required field. If invalid, set an error message and stop.
+    if (input$submit_painting == "") {
+      rv$submission_error <- "Please select a location."
+      return()
+      # return() exits the observeEvent block early — nothing below this runs.
+    }
+    if (is.null(input$submit_photo)) {
+      rv$submission_error <- "Please upload a photo."
+      return()
+    }
+    if (is.na(input$submit_latitude) || is.na(input$submit_longitude)) {
+      # is.na() checks if a value is missing/empty.
+      rv$submission_error <- "Please enter GPS coordinates."
+      return()
+    }
+    if (input$submit_photo$size > 5 * 1024 * 1024) {
+      # File size is in bytes. 5 * 1024 * 1024 = 5MB in bytes.
+      rv$submission_error <- "File must be less than 5MB."
+      return()
+    }
+    
+    # ── SAVE SUBMISSION ──────────────────────────────────────────────────
+    tryCatch({
+      # tryCatch() runs the code inside and catches any errors so the app
+      # doesn't crash — it runs the error function instead.
+      
+      file_data <- readBin(input$submit_photo$datapath, "raw", file.info(input$submit_photo$datapath)$size)
+      # readBin() reads the uploaded file as raw binary data.
+      # input$submit_photo$datapath is the temporary file path Shiny saved it to.
+      
+      base64_image <- paste0("data:image/jpeg;base64,", base64enc::base64encode(file_data))
+      # base64encode() converts the binary image into a Base64 text string.
+      # This format (data:image/jpeg;base64,...) can be stored as text and
+      # displayed directly in an <img> src attribute without a file URL.
+      
+      new_submission <- data.frame(
+        # Creates a one-row data frame with all the submission details.
+        submission_id = as.character(as.integer(Sys.time())),
+        # Uses the current Unix timestamp as a unique ID. as.integer() removes decimals.
+        name = ifelse(input$submit_name == "", "Anonymous", input$submit_name),
+        # ifelse() picks "Anonymous" if the name field is blank.
+        email = input$submit_email,
+        painting_id = as.integer(input$submit_painting),
+        # The dropdown sends the painting's ID as a string; convert it to integer.
+        photo_url = base64_image,
+        latitude = input$submit_latitude,
+        longitude = input$submit_longitude,
+        observations = input$submit_observations,
+        submission_date = as.character(Sys.Date()),
+        # Sys.Date() gets today's date. as.character() converts it to "YYYY-MM-DD".
+        approval_status = "Pending",
+        # All new submissions start as "Pending" until an admin approves or rejects.
+        stringsAsFactors = FALSE
+        # Prevents R from converting text columns to factor type (old R behavior).
+      )
+      
+      rv$submissions <- rbind(rv$submissions, new_submission)
+      # rbind() appends the new row to the bottom of the existing submissions table.
+      
+      save_data(rv$submissions, SUBMISSIONS_FILE)
+      # Writes the updated submissions data frame to disk as an .rds file.
+      
+      rv$submission_success <- TRUE
+      # Triggers the success message to appear above the form.
+      
+      # ── RESET FORM FIELDS ─────────────────────────────────────────────
+      # Clear all inputs back to their default/empty state after successful submit.
+      updateTextInput(session, "submit_name", value = "")
+      updateTextInput(session, "submit_email", value = "")
+      updateSelectInput(session, "submit_painting", selected = "")
+      updateNumericInput(session, "submit_latitude", value = NA)
+      updateNumericInput(session, "submit_longitude", value = NA)
+      updateTextAreaInput(session, "submit_observations", value = "")
+      
+    }, error = function(e) {
+      # If anything above throws an error, this runs instead of crashing the app.
+      rv$submission_error <- paste("Failed:", e$message)
+      # e$message contains the technical error description from R.
+    })
+  })
+  
+  
+  # ── COMPARISON GALLERY ───────────────────────────────────────────────────
+  # Generates the grid of approved photo thumbnails shown on the Compare tab.
+  output$comparison_gallery <- renderUI({
+    approved <- rv$approved
+    
+    if (nrow(approved) == 0) {
+      # If no submissions have been approved yet, show a placeholder message.
+      return(tags$div(class = "no-comparisons",
+                      HTML("&#127796; No approved comparisons yet. Be the first to contribute!")
+                      # &#127796; is the 🌴 tree emoji.
+      ))
+    }
+    
+    cards <- lapply(1:nrow(approved), function(i) {
+      sub <- approved[i, ]
+      # sub = one approved submission row.
+      
+      painting <- paintings_data[paintings_data$id == sub$painting_id, ]
+      # Look up the matching painting from the CSV using the stored painting_id.
+      
+      tags$div(class = "comparison-thumb",
+               onclick = sprintf("openComparisonLightbox('%s', '%s')", painting$image_url, sub$photo_url),
+               # When clicked, opens the side-by-side lightbox with the historical
+               # painting URL and the user's modern photo URL.
+               
+               tags$img(src = painting$image_url, alt = painting$title),
+               # Shows the historical painting as the thumbnail preview.
+               
+               tags$div(class = "comparison-thumb-overlay",
+                        tags$div(class = "comparison-thumb-label", HTML("&#8644; Compare"))
+                        # &#8644; is the ⇤⇥ compare arrows character. Shown on hover via CSS.
+               )
+      )
+    })
+    
+    tags$div(class = "comparison-grid", cards)
+    # Wraps all thumbnails in the grid container.
+  })
+  
+  
+  # ── ADMIN AUTHENTICATION ─────────────────────────────────────────────────
+  observeEvent(input$admin_login, {
+    # Runs when the "Sign In" button on the Login tab is clicked.
+    if (input$admin_password == "admin123") rv$admin_auth <- TRUE
+    # Simple hardcoded password check. Sets admin_auth to TRUE on success.
+    # NOTE: This is not secure for production — password should be hashed/stored safely.
+  })
+  
+  output$admin_authenticated <- reactive({ rv$admin_auth })
+  # Exposes the authentication state to the UI so conditionalPanel() can use it.
+  # reactive() creates a reactive expression that re-evaluates when rv$admin_auth changes.
+  
+  outputOptions(output, "admin_authenticated", suspendWhenHidden = FALSE)
+  # Same as with the map — prevents Shiny from pausing this output when the tab is hidden,
+  # since conditionalPanel needs it available even when Login tab isn't active.
+  
+  
+  # ── ADMIN TABLE ──────────────────────────────────────────────────────────
+  # Renders the interactive data table of all submissions for the admin to review.
+  output$admin_table <- renderDT({
+    input$refresh_admin
+    # Reading this input here means the table will re-render whenever the
+    # Refresh button is clicked (even though we don't use its value directly).
+    
+    if (nrow(rv$submissions) == 0) return(data.frame(Message = "No submissions yet"))
+    # If there's nothing to show, return a simple placeholder table.
+    
+    datatable(
+      rv$submissions[, c("submission_id", "name", "painting_id", "latitude", "longitude", "submission_date", "approval_status")],
+      # Select only the relevant columns to display (excludes the base64 photo data,
+      # which would be enormous and unreadable in a table).
+      
+      options = list(
+        pageLength = 25,
+        # Show 25 rows per page before pagination kicks in.
+        order = list(list(6, 'desc'))
+        # Default sort: column index 6 (submission_date) descending (newest first).
+      ),
+      rownames = FALSE,
+      # Don't show R's row numbers as a column.
+      selection = 'single'
+      # Only allow one row to be selected at a time (for approve/reject actions).
+    )
+  })
+  
+  
+  # ── APPROVE SUBMISSION ───────────────────────────────────────────────────
+  observeEvent(input$approve_submission, {
+    if (length(input$admin_table_rows_selected) > 0) {
+      # Only act if a row is actually selected in the table.
+      idx <- input$admin_table_rows_selected
+      # idx is the row number of the selected submission.
+      
+      sub <- rv$submissions[idx, ]
+      # Extract that specific submission row.
+      
+      sub$approval_status <- "Approved"
+      # Update its status.
+      
+      rv$approved <- rbind(rv$approved, sub)
+      # Add it to the approved data frame, making it appear on the Compare tab.
+      
+      save_data(rv$approved, APPROVED_FILE)
+      # Persist the approved data to disk.
+      
+      rv$submissions[idx, "approval_status"] <- "Approved"
+      # Also update the status in the main submissions table.
+      
+      save_data(rv$submissions, SUBMISSIONS_FILE)
+      # Persist the updated submissions to disk.
+      
+      showNotification("Approved!", type = "message")
+      # Shows a small toast notification in the corner of the browser.
+    }
+  })
+  
+  
+  # ── REJECT SUBMISSION ────────────────────────────────────────────────────
+  observeEvent(input$reject_submission, {
+    if (length(input$admin_table_rows_selected) > 0) {
+      idx <- input$admin_table_rows_selected
+      rv$submissions[idx, "approval_status"] <- "Rejected"
+      # Mark as rejected in the table (does NOT move to approved, so it won't
+      # appear on the Compare tab).
+      save_data(rv$submissions, SUBMISSIONS_FILE)
+      showNotification("Rejected.", type = "warning")
+    }
+  })
+  
+  
+  # ── REFRESH ADMIN DATA ───────────────────────────────────────────────────
+  observeEvent(input$refresh_admin, {
+    # Re-reads both data files from disk and updates the reactive values.
+    # Useful if data was modified externally or by another session.
+    rv$submissions <- load_data(SUBMISSIONS_FILE)
+    rv$approved <- load_data(APPROVED_FILE)
+    showNotification("Data refreshed!", type = "message")
+  })
+}
+
+
+################################################################################
+# LAUNCH THE APP
+# shinyApp() wires the UI and server together and starts the application.
+# When you click "Run App" in RStudio, this is the line that actually
+# launches the web server and opens the browser.
+################################################################################
+shinyApp(ui = ui, server = server)
