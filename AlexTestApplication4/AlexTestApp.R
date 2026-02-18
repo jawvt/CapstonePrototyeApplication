@@ -594,86 +594,165 @@ body {
    Includes hover and active effects for interactivity.
    ######################################### */
 
+
+/* ===== Terra Gradient Button (used for primary actions in hero) ===== */
+
 .btn-terra {
   background: linear-gradient(135deg, var(--terra) 0%, var(--terra-dark) 100%);
-  /* Gradient background from terra to terra-dark */
+  /* Primary gradient background */
 
   color: var(--white) !important;
-  /* White text */
+  /* White text for contrast */
 
   border: none;
   /* No border */
 
   padding: 16px 36px;
-  /* Inner spacing */
+  /* Button spacing */
 
   font-size: 15px;
-  /* Text size */
-
   font-weight: 700;
-  /* Bold text */
-
   border-radius: 50px;
-  /* Rounded pill-shaped button */
+  /* Pill-shaped button */
 
   cursor: pointer;
-  /* Cursor changes on hover */
-
   transition: all 0.3s var(--ease);
-  /* Smooth transition for hover effects */
-
   text-decoration: none;
-  /* Remove underline if it's a link */
-
   display: inline-flex;
-  /* Flex layout for icons and text inside button */
-
   align-items: center;
-  /* Vertically center content */
-
   gap: 8px;
-  /* Space between icon and text */
-
   box-shadow: 0 4px 15px rgba(194, 113, 79, 0.3);
   /* Subtle shadow for depth */
 }
 
 .btn-terra:hover {
   transform: translateY(-2px) scale(1.03);
-  /* Slight lift and scale up on hover */
-
   box-shadow: 0 8px 25px rgba(194, 113, 79, 0.4);
-  /* Bigger shadow on hover */
+  /* Hover lift + stronger shadow */
 }
 
 .btn-terra:active {
   transform: translateY(0) scale(0.98);
-  /* Pressed effect: shrink slightly */
+  /* Pressed effect */
 }
+
+
+/* ===== Sage Outline Button (used for secondary actions in hero) ===== */
 
 .btn-sage {
   background: transparent;
-  /* Transparent background for outlined style */
-
   color: var(--sage-light) !important;
-  /* Light sage text */
-
   border: 2px solid var(--sage);
-  /* Sage-colored border */
-
   padding: 14px 34px;
-  /* Inner spacing slightly smaller than .btn-terra */
-
   font-size: 15px;
-  /* Text size */
-
   font-weight: 700;
-  /* Bold text */
-
   border-radius: 50px;
-  /* Rounded edges */
-
   cursor: pointer;
-  /* Pointer cursor on hover */
+  transition: all 0.3s var(--ease);
+  /* Simple outlined button with hover effect */
+}
 
-  transition: all 0
+.btn-sage:hover {
+  background: rgba(107, 143, 113, 0.15);
+  border-color: var(--sage-light);
+  transform: translateY(-2px);
+  /* Lift + subtle background on hover */
+}
+
+
+/* ===== Submit Button (used in forms, not hero) ===== */
+
+
+.btn-submit {
+  background: linear-gradient(135deg, var(--forest-mid) 0%, var(--forest) 100%);
+  color: var(--white) !important;
+  border: none;
+  padding: 16px 40px;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.3s var(--ease);
+  width: 100%;
+  box-shadow: 0 4px 15px rgba(30, 51, 40, 0.25);
+  /* Full-width submit button for forms */
+}
+
+.btn-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(30, 51, 40, 0.35);
+  /* Hover lift + stronger shadow */
+}
+
+
+/* ######################################### 
+
+   SECTION HEADERS
+   
+   Styles section headers with centered titles, subtitles, and a small accent line.
+   
+   ######################################### */
+
+.section-header {
+  text-align: center;
+  /* Center all content inside the header */
+
+  padding: 60px 24px 40px;
+  /* Vertical and horizontal spacing around the section header */
+}
+
+.section-header h2 {
+  font-family: 'DM Serif Display', Georgia, serif;
+  /* Serif font for the main title */
+
+  font-size: clamp(32px, 5vw, 52px);
+  /* Responsive font size between 32px and 52px */
+
+  color: var(--forest);
+  /* Dark green title color */
+
+  margin-bottom: 12px;
+  /* Space below the title */
+
+  line-height: 1.15;
+  /* Tight line spacing for compact title */
+}
+
+.section-header p {
+  font-size: 17px;
+  /* Subtitle / description text size */
+
+  color: var(--charcoal-light);
+  /* Lighter text color for contrast */
+
+  max-width: 560px;
+  /* Limit width for readability */
+
+  margin: 0 auto;
+  /* Center subtitle horizontally */
+
+  line-height: 1.6;
+  /* Comfortable line spacing */
+}
+
+.section-header .accent-line {
+  width: 50px;
+  /* Width of the small line under the header */
+
+  height: 4px;
+  /* Thickness of the accent line */
+
+  background: linear-gradient(90deg, var(--terra), var(--amber));
+  /* Gradient color for visual emphasis */
+
+  border-radius: 2px;
+  /* Slightly rounded ends */
+
+  margin: 16px auto 0;
+  /* Center the line with spacing above */
+}
+
+
+
+
+
