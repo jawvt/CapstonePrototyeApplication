@@ -32,8 +32,8 @@ library(shinyjs)
 ############################################
 
 LocalDataDirectory <- "app_data"
-Submissions <- file.path(LocalDataDirectory, "submissions.rds")
-Approved <- file.path(LocalDataDirectory, "approved.rds")
+SUBMISSIONS_FILE <- file.path(LocalDataDirectory, "submissions.rds")
+APPROVED_FILE <- file.path(LocalDataDirectory, "approved.rds")
 
 if (!dir.exists(LocalDataDirectory)) dir.create(LocalDataDirectory, recursive = TRUE)
 
@@ -67,6 +67,28 @@ paintings_data <- read.csv(paintings_csv, stringsAsFactors = FALSE)
 # Custom CSS
 # Claude AI provided support
 # Builds the website
+#
+# TABLE OF CONTENTS:
+#
+# Root
+# Reset and Base
+# Navbar Overrides
+# Tab Content Wrapper
+# Hero/Home Tab
+# Button Styles
+# Section Headers
+# Painting Cards
+# Map
+# Comparisons
+# Lightbox (Paintings)
+# Lightbox (Comparisons)
+# Admin
+# Responsive (mobile)
+# Alerts
+# Shiny Specific Overrides
+
+
+
 ############################################
 
 app_css <- "
@@ -753,6 +775,963 @@ body {
 }
 
 
+/* ######################################### 
+   PAINTING CARDS
+
+   Styles a responsive gallery of painting cards with hover effects, image zoom,
+   overlay gradient, badges, and textual info.
+   ######################################### */
+
+.gallery-wrap {
+  padding: 0 24px 60px;
+  /* Space around the gallery */
+
+  max-width: 1400px;
+  /* Limit gallery width */
+
+  margin: 0 auto;
+  /* Center gallery */
+}
+
+.paintings-grid {
+  display: grid;
+  /* Grid layout for cards */
+
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  /* Responsive columns with minimum 380px width */
+
+  gap: 32px;
+  /* Space between cards */
+}
+
+.painting-card {
+  position: relative;
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--white);
+  box-shadow: var(--shadow-md);
+  transition: all 0.4s var(--ease);
+  transform-style: preserve-3d;
+  /* Basic card container with rounded edges and shadow */
+}
+
+.painting-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+  /* Hover lift + stronger shadow */
+}
+
+.painting-card-img-wrap {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  /* Image container maintains ratio */
+}
+
+.painting-card-img-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(30,51,40,0.6) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.4s;
+  /* Overlay gradient for hover effect */
+}
+
+.painting-card:hover .painting-card-img-wrap::after {
+  opacity: 1;
+  /* Show gradient on hover */
+}
+
+.painting-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.6s var(--ease);
+  /* Image fills container and transitions on hover */
+}
+
+.painting-card:hover .painting-image {
+  transform: scale(1.06);
+  /* Slight zoom on hover */
+}
+
+.painting-card-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(30, 51, 40, 0.8);
+  backdrop-filter: blur(8px);
+  color: var(--amber-light);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 20px;
+  z-index: 2;
+  /* Small badge on top-right of card */
+}
+
+.painting-info {
+  padding: 24px;
+  /* Space around text content */
+}
+
+.painting-title {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 22px;
+  color: var(--forest);
+  margin-bottom: 6px;
+  line-height: 1.3;
+  /* Painting title styling */
+}
+
+.painting-metadata {
+  color: var(--terra);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  /* Metadata (like year/artist) styling */
+}
+
+.painting-context {
+  color: var(--charcoal-light);
+  font-size: 14px;
+  line-height: 1.65;
+  /* Description text styling */
+}
+
+.painting-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--terra);
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 14px;
+  transition: gap 0.3s;
+  /* Call-to-action link styling */
+}
+
+.painting-card:hover .painting-card-cta {
+  gap: 10px;
+  /* Slight animation on hover */
+}
+
+/* ######################################### 
+   MAP
+   ######################################### 
+   Styles the map container with rounded corners, shadow, and fixed height.
+   Ensures the Leaflet map fills the container.
+*/
+
+.map-container {
+  border-radius: 24px;
+  /* Rounded corners for map container */
+
+  overflow: hidden;
+  /* Clip map content to container shape */
+
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  /* Drop shadow for depth */
+
+  height: 600px;
+  /* Fixed map height */
+}
+
+.leaflet-container {
+  height: 100%;
+  /* Make map fill its container */
+
+  border-radius: px;
+  /* Rounded corners (note: 'px' is incomplete, should be a number like 24px) */
+}
 
 
+/* ######################################### 
+   FORM
+   
+   Styles forms with a centered card layout, input fields, labels, and upload zones.
+   Includes hover/focus effects for better usability and visual feedback.
+   
+   ######################################### */
+
+.form-wrap {
+  padding: 0 24px 60px;
+  /* Space around the form */
+
+  max-width: 660px;
+  /* Limit form width */
+
+  margin: 0 auto;
+  /* Center form horizontally */
+}
+
+.form-card {
+  background: var(--white);
+  /* Card background */
+
+  padding: 48px;
+  /* Inner spacing */
+
+  border-radius: var(--radius-lg);
+  /* Rounded edges */
+
+  box-shadow: var(--shadow-md);
+  /* Card shadow */
+
+  border: 1px solid var(--sand-dark);
+  /* Subtle border */
+}
+
+.form-card .form-group {
+  margin-bottom: 24px;
+  /* Space between input groups */
+}
+
+.form-card label,
+.form-card .control-label {
+  font-weight: 600;
+  color: var(--forest);
+  font-size: 14px;
+  margin-bottom: 8px;
+  display: block;
+  /* Label styling */
+}
+
+.form-card .form-control,
+.form-card .shiny-input-container input[type='text'],
+.form-card .shiny-input-container input[type='number'],
+.form-card .shiny-input-container select,
+.form-card .shiny-input-container textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid var(--sand-dark);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.3s var(--ease);
+  background: var(--cream);
+  color: var(--charcoal);
+  /* Input field styling */
+}
+
+.form-card .form-control:focus,
+.form-card input:focus,
+.form-card select:focus,
+.form-card textarea:focus {
+  outline: none;
+  border-color: var(--sage);
+  box-shadow: 0 0 0 4px rgba(107, 143, 113, 0.15);
+  background: var(--white);
+  /* Focus effect for inputs */
+}
+
+.upload-zone {
+  border: 3px dashed var(--sand-dark);
+  border-radius: var(--radius-md);
+  padding: 40px 24px;
+  text-align: center;
+  transition: all 0.3s var(--ease);
+  background: var(--cream);
+  cursor: pointer;
+  /* Drag-and-drop upload area styling */
+}
+
+.upload-zone:hover {
+  border-color: var(--sage);
+  background: rgba(107, 143, 113, 0.04);
+  /* Hover effect for upload area */
+}
+
+.upload-icon {
+  font-size: 36px;
+  margin-bottom: 8px;
+  /* Icon inside upload zone */
+}
+
+/* #########################################
+   COMPARISONS
+   
+   Styles a responsive grid of comparison thumbnails with hover zoom, overlay,
+   and labels. Also styles a message when no comparisons are available.
+   
+   ######################################### */
+
+.comparison-wrap {
+  padding: 0 24px 60px;
+  /* Space around the comparison section */
+
+  max-width: 1400px;
+  /* Limit section width */
+
+  margin: 0 auto;
+  /* Center section */
+}
+
+.comparison-grid {
+  display: grid;
+  /* Grid layout for thumbnails */
+
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  /* Responsive columns with minimum width 320px */
+
+  gap: 24px;
+  /* Space between thumbnails */
+}
+
+.comparison-thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.4s var(--ease);
+  /* Thumbnail container with rounded edges, shadow, and hover animation */
+}
+
+.comparison-thumb:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: var(--shadow-lg);
+  /* Hover lift and stronger shadow */
+}
+
+.comparison-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s var(--ease);
+  /* Image fills container and transitions on hover */
+}
+
+.comparison-thumb:hover img {
+  transform: scale(1.08);
+  /* Slight zoom effect on hover */
+}
+
+.comparison-thumb-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(30,51,40,0.7) 0%, transparent 60%);
+  display: flex;
+  align-items: flex-end;
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  /* Overlay with gradient and bottom-aligned content, hidden by default */
+}
+
+.comparison-thumb:hover .comparison-thumb-overlay {
+  opacity: 1;
+  /* Show overlay on hover */
+}
+
+.comparison-thumb-label {
+  color: var(--white);
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* Label text on overlay */
+}
+
+.no-comparisons {
+  text-align: center;
+  padding: 80px 24px;
+  color: var(--charcoal-light);
+  font-size: 18px;
+  /* Message when no comparisons exist */
+}
+
+ 
+ /* #########################################
+   LIGHTBOX (Paintings)
+   
+   This CSS creates a full-screen lightbox overlay for displaying paintings.
+   It includes a fade-in dark overlay, centered animated image, interactive
+   close button, and contextual metadata panel that animates into view.
+   Only necessary lines are explained below.
+
+   ######################################### */
+
+#lightbox {
+  display: none; 
+  /* Keeps the lightbox hidden until activated */
+
+  position: fixed; 
+  /* Locks the lightbox to the viewport so it stays in place while scrolling */
+
+  inset: 0; 
+  /* Shorthand for top/right/bottom/left: 0 — makes it cover the full screen */
+
+  background: rgba(10, 15, 12, 0.97); 
+  /* Creates a nearly opaque dark overlay behind the image */
+
+  z-index: 10000; 
+  /* Ensures the lightbox appears above all other page elements */
+
+  opacity: 0; 
+  /* Starts transparent so it can fade in smoothly */
+
+  transition: opacity 0.4s; 
+  /* Animates fade-in and fade-out effect */
+}
+
+#lightbox.active {
+  display: flex; 
+  /* Makes the container visible and enables flex layout */
+
+  opacity: 1; 
+  /* Fades the overlay into view */
+}
+
+.lightbox-content {
+  height: 100%; 
+  /* Allows vertical centering within the full viewport */
+
+  display: flex;
+
+  align-items: center; 
+  /* Vertically centers the image */
+
+  justify-content: center; 
+  /* Horizontally centers the image */
+
+  position: relative; 
+  /* Allows absolutely positioned children (close button, info panel) */
+}
+
+.lightbox-image-container {
+  max-width: 90%; 
+  /* Prevents the image from exceeding viewport width */
+
+  max-height: 80%; 
+  /* Prevents the image from exceeding viewport height */
+
+  overflow: hidden; 
+  /* Hides image edges during scaling animation */
+
+  border-radius: var(--radius-md); 
+  /* Applies consistent rounded corners */
+
+  box-shadow: 0 30px 80px rgba(0,0,0,0.5); 
+  /* Adds depth so the image feels elevated */
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: 100%; 
+  /* Ensures the image scales responsively inside its container */
+
+  animation: kenBurns 20s ease-in-out infinite alternate; 
+  /* Applies a slow cinematic zoom and pan animation */
+}
+
+@keyframes kenBurns {
+  100% { 
+    transform: scale(1.08) translate(-1.5%, -1.5%); 
+    /* Gradually zooms and slightly shifts the image for subtle motion */
+  }
+}
+
+.lightbox-close {
+  position: absolute; 
+  /* Positions close button relative to the lightbox content */
+
+  top: 24px;
+  right: 24px; 
+  /* Places close button in the top-right corner */
+
+  border-radius: 50%; 
+  /* Makes the button circular */
+
+  cursor: pointer; 
+  /* Shows pointer cursor to indicate interactivity */
+
+  transition: all 0.3s; 
+  /* Smooth hover animation */
+
+  z-index: 10; 
+  /* Keeps button above image and info panel */
+}
+
+.lightbox-close:hover {
+  transform: rotate(90deg) scale(1.1); 
+  /* Rotates and slightly enlarges button for interactive feedback */
+}
+
+.lightbox-info {
+  position: absolute; 
+  /* Anchors metadata panel within lightbox */
+
+  bottom: 32px;
+  left: 32px;
+  right: 32px; 
+  /* Positions info panel near bottom with side margins */
+
+  backdrop-filter: blur(20px); 
+  /* Adds glass-like blur effect behind the panel */
+
+  opacity: 0; 
+  /* Starts hidden for animation */
+
+  transform: translateY(16px); 
+  /* Slightly shifts downward before animating upward */
+
+  transition: all 0.5s var(--ease) 0.2s; 
+  /* Smooth delayed entrance animation */
+}
+
+#lightbox.active .lightbox-info {
+  opacity: 1; 
+  /* Fades metadata panel into view */
+
+  transform: translateY(0); 
+  /* Slides panel upward into final position */
+}
+
+/* #########################################
+   COMPARISON LIGHTBOX (Side-by-side)
+   SUMMARY:
+   This CSS creates a full-screen comparison lightbox for displaying two
+   paintings side-by-side. It uses CSS Grid for equal split layout,
+   rounded containers for a polished look, and styled overlay labels
+   with a subtle glassmorphism effect for context.
+
+   ######################################### */
+   
+#comparison-lightbox {
+  display: none; 
+  /* Keeps comparison lightbox hidden until activated */
+
+  position: fixed; 
+  /* Locks it to the viewport */
+
+  inset: 0; 
+  /* Covers the entire screen */
+
+  background: rgba(10, 15, 12, 0.97); 
+  /* Dark cinematic overlay */
+
+  z-index: 10001; 
+  /* Ensures it appears above the standard lightbox */
+}
+
+#comparison-lightbox.active {
+  display: flex; 
+  /* Makes the lightbox visible when active */
+}
+
+.comparison-container {
+  width: 100%;
+  height: 100%; 
+  /* Allows full viewport usage */
+
+  display: grid; 
+  /* Enables side-by-side layout */
+
+  grid-template-columns: 1fr 1fr; 
+  /* Creates two equal-width columns */
+
+  gap: 4px; 
+  /* Small divider between images */
+
+  padding: 70px 32px; 
+  /* Prevents content from touching screen edges */
+}
+
+.comparison-side {
+  position: relative; 
+  /* Allows labels to be positioned inside */
+
+  overflow: hidden; 
+  /* Prevents zoomed images from spilling out */
+
+  background: #000; 
+  /* Neutral background behind images */
+
+  border-radius: var(--radius-sm); 
+  /* Gives both image panels rounded corners */
+}
+
+.comparison-side img {
+  width: 100%;
+  height: 100%; 
+  /* Forces image to fill its side container */
+
+  object-fit: contain; 
+  /* Ensures full image is visible without cropping */
+
+  transition: transform 0.1s ease; 
+  /* Smooth micro-interactions (zoom/pan effects if applied) */
+}
+
+.comparison-label {
+  position: absolute; 
+  /* Anchors label inside image container */
+
+  top: 16px;
+  left: 16px; 
+  /* Places label in upper-left corner */
+
+  background: rgba(30, 51, 40, 0.8); 
+  /* Semi-transparent dark overlay */
+
+  backdrop-filter: blur(8px); 
+  /* Creates glass-like blur effect */
+
+  padding: 8px 18px; 
+  /* Adds breathing room inside label */
+
+  border-radius: 20px; 
+  /* Creates pill-shaped label */
+
+  font-size: 13px;
+  font-weight: 700; 
+  /* Makes label text bold and readable */
+
+  color: var(--amber-light); 
+  /* Accent color for visual hierarchy */
+
+  border: 1px solid rgba(107, 143, 113, 0.2); 
+  /* Subtle outline for depth */
+}
+
+/* #########################################
+   ADMIN
+   
+   This CSS styles the Admin interface, including the login card,
+   admin action toolbar, and DataTable overrides. It creates a clean,
+   centered layout with strong typography, rounded cards, elevated
+   shadows, and clearly differentiated action buttons (approve, reject,
+   refresh) with interactive hover feedback.
+
+   ######################################### */
+
+.admin-wrap {
+  max-width: 1200px;
+  /* Prevents admin content from stretching too wide on large screens */
+
+  margin: 0 auto;
+  /* Centers the admin layout horizontally */
+
+  padding: 0 24px 60px;
+  /* Adds side spacing and bottom breathing room */
+}
+
+.admin-login-card {
+  max-width: 400px;
+  /* Keeps login form compact and focused */
+
+  margin: 0 auto;
+  /* Centers login card */
+
+  background: var(--white);
+  /* Clean card background */
+
+  padding: 48px;
+  /* Generous spacing for premium feel */
+
+  border-radius: var(--radius-lg);
+  /* Large rounded corners for modern UI */
+
+  box-shadow: var(--shadow-md);
+  /* Elevates card from background */
+
+  text-align: center;
+  /* Centers login text and inputs */
+}
+
+.admin-login-card h3 {
+  font-family: 'DM Serif Display', Georgia, serif;
+  /* Elegant headline typography */
+
+  color: var(--forest);
+  /* Strong brand heading color */
+
+  font-size: 28px;
+}
+
+.admin-login-card p {
+  color: var(--charcoal-light);
+  /* Softer secondary text */
+
+  font-size: 14px;
+}
+
+.admin-login-card .form-control {
+  padding: 14px 16px;
+  /* Comfortable click/tap target size */
+
+  border: 2px solid var(--sand-dark);
+  /* Subtle input boundary */
+
+  border-radius: var(--radius-sm);
+  /* Consistent rounded inputs */
+
+  width: 100%;
+  /* Full-width inside card */
+
+  transition: all 0.3s;
+  /* Smooth focus animation */
+}
+
+.admin-login-card .form-control:focus {
+  border-color: var(--sage);
+  /* Highlights active input */
+
+  box-shadow: 0 0 0 4px rgba(107,143,113,0.15);
+  /* Accessible focus ring */
+
+  outline: none;
+  /* Removes default browser outline */
+}
+
+
+/* =========================
+   ADMIN TOOLBAR
+   ========================= */
+
+.admin-toolbar {
+  display: flex;
+  /* Horizontal button layout */
+
+  gap: 12px;
+  /* Even spacing between buttons */
+
+  flex-wrap: wrap;
+  /* Prevents overflow on small screens */
+}
+
+.admin-toolbar .btn {
+  border-radius: var(--radius-sm);
+  /* Rounded action buttons */
+
+  font-weight: 700;
+  /* Strong action emphasis */
+
+  text-transform: uppercase;
+  /* Creates administrative tone */
+
+  letter-spacing: 0.5px;
+  /* Improves readability of uppercase text */
+
+  cursor: pointer;
+  /* Indicates clickability */
+
+  transition: all 0.3s;
+  /* Smooth hover effects */
+
+  border: 2px solid;
+  /* Gives structure to transparent buttons */
+}
+
+.admin-toolbar .btn-approve {
+  background: var(--sage);
+  /* Positive action color */
+
+  border-color: var(--sage);
+
+  color: white;
+}
+
+.admin-toolbar .btn-approve:hover {
+  background: var(--sage-dark);
+  /* Darkens to reinforce interaction */
+}
+
+.admin-toolbar .btn-reject {
+  background: transparent;
+  /* Neutral base */
+
+  border-color: var(--terra);
+  /* Warning/destructive tone */
+
+  color: var(--terra);
+}
+
+.admin-toolbar .btn-reject:hover {
+  background: rgba(194,113,79,0.1);
+  /* Light tint feedback on hover */
+}
+
+.admin-toolbar .btn-refresh {
+  background: transparent;
+
+  border-color: var(--charcoal-light);
+
+  color: var(--charcoal-light);
+  /* Neutral utility action */
+}
+
+.admin-toolbar .btn-refresh:hover {
+  background: rgba(0,0,0,0.04);
+  /* Subtle hover feedback */
+}
+
+
+/* =========================
+   DataTable Overrides
+   ========================= */
+
+.dataTables_wrapper {
+  background: var(--white);
+  /* Makes table area card-like */
+
+  border-radius: var(--radius-md);
+  /* Rounded table container */
+
+  padding: 24px;
+  /* Inner spacing */
+
+  box-shadow: var(--shadow-sm);
+  /* Slight elevation */
+}
+
+table.dataTable thead th {
+  font-weight: 700;
+  /* Strong header hierarchy */
+
+  text-transform: uppercase;
+  /* Administrative styling */
+
+  letter-spacing: 1px;
+  /* Improves legibility */
+
+  color: var(--forest);
+  /* Brand-aligned header color */
+
+  border-bottom: 2px solid var(--sand-dark) !important;
+  /* Strong visual divider under headers */
+}
+
+/* #########################################
+   ALERTS
+   
+   This CSS defines custom success and error alert components.
+   Each alert uses soft tinted backgrounds, colored borders for clear
+   status indication, rounded corners for consistency with the design
+   system, and bold typography to ensure visibility and readability.
+   
+   ######################################### */
+
+.alert-success-custom {
+  background: rgba(107, 143, 113, 0.1);
+  /* Light sage tint to indicate positive/success state */
+
+  border: 1px solid var(--sage);
+  /* Stronger sage border for visual definition */
+
+  color: var(--sage-dark);
+  /* Darker green text for readable contrast */
+
+  padding: 16px 20px;
+  /* Comfortable internal spacing */
+
+  border-radius: var(--radius-sm);
+  /* Rounded corners for design consistency */
+
+  margin-bottom: 24px;
+  /* Spacing below alert */
+
+  font-weight: 600;
+  /* Slight emphasis for important message */
+}
+
+.alert-error-custom {
+  background: rgba(194, 113, 79, 0.1);
+  /* Light terra tint to indicate warning/error */
+
+  border: 1px solid var(--terra);
+  /* Strong terra border for clarity */
+
+  color: var(--terra-dark);
+  /* Darker red tone for readable contrast */
+
+  padding: 16px 20px;
+  /* Consistent internal spacing */
+
+  border-radius: var(--radius-sm);
+  /* Rounded corners for cohesive UI */
+
+  margin-bottom: 24px;
+  /* Spacing below alert */
+
+  font-weight: 600;
+  /* Emphasizes message importance */
+}
+
+
+
+/* #########################################
+   RESPONSIVE
+   
+   Makes media mobile friendly
+   ######################################### */
+   
+@media (max-width: 768px) {
+  .paintings-grid { grid-template-columns: 1fr; }
+  /* Changes the paintings grid to a single column instead of multiple columns */
+
+  .comparison-grid { grid-template-columns: 1fr; }
+  /* Makes side-by-side comparison images stack vertically */
+
+  .stats-strip { grid-template-columns: 1fr; }
+  /* Stacks any stats or metrics strip vertically for mobile */
+
+  .comparison-container { grid-template-columns: 1fr; }
+  /* Stacks the comparison lightbox images vertically instead of side-by-side */
+
+  .form-card { padding: 32px 24px; }
+  /* Reduces padding on forms for smaller screens */
+
+  .hero-inner { padding: 40px 20px; }
+  /* Adjusts padding inside hero sections to fit mobile screens */
+
+  .lightbox-content { padding: 20px; }
+  /* Reduces lightbox content padding to maximize image space on mobile */
+
+  .lightbox-info { left: 16px; right: 16px; bottom: 16px; padding: 20px; }
+  /* Moves the lightbox info panel closer to edges and reduces padding for small screens */
+
+  .section-header { padding: 40px 20px 30px; }
+  /* Adjusts section header spacing for mobile screens */
+
+
+/* #########################################
+   SHINY SPECIFIC OVERRIDES
+   ######################################### */
+
+
+.shiny-input-container { 
+  width: 100% !important; 
+  /* Forces all Shiny inputs to fill the full width of their container, overriding Shiny defaults */
+}
+
+.selectize-input { 
+  border: 2px solid var(--sand-dark) !important; 
+  /* Gives dropdown inputs a consistent border matching your design */
+  
+  border-radius: var(--radius-sm) !important; 
+  /* Adds rounded corners to dropdowns */
+  
+  padding: 10px 14px !important; 
+  /* Adds comfortable spacing inside the input */
+}
+
+.selectize-input.focus { 
+  border-color: var(--sage) !important; 
+  /* Changes border to the sage color when the input is focused */
+  
+  box-shadow: 0 0 0 4px rgba(107,143,113,0.15) !important; 
+  /* Adds a subtle focus ring to indicate active state */
+}
+"
 
