@@ -198,7 +198,7 @@ body {
   /* Smooth hover and active transitions */
 
   border-bottom: 3px solid transparent;
-  /* Space for active link underline */
+  /* Space for active link underline */ 
 
   margin-bottom: -3px;
   /* Align underline with navbar bottom */
@@ -211,7 +211,7 @@ body {
   color: var(--sand) !important;
   /* Change text color on hover */
 
-  background: rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.1);
   /* Subtle background highlight on hover */
 }
 
@@ -284,7 +284,7 @@ body {
   position: relative;
   /* Position relative to contain absolute children like glows */
 
-  background: linear-gradient(135deg, var(--forest) 0%, var(--forest-mid) 40%, var(--terra-dark) 100%);
+  background: linear-gradient(135deg, var(--forest) 100%, var(--forest-mid) 50%, var(--forest) 100%);
   /* Gradient background from forest to terra-dark */
 
   min-height: calc(100vh - 64px);
@@ -310,25 +310,14 @@ body {
   inset: 0;
   /* Stretch to fill the parent container */
 
-  opacity: 0.06;
-  /* Very faint pattern */
-
-  background-image:
-    radial-gradient(circle at 20% 80%, var(--amber) 1px, transparent 1px),
-    radial-gradient(circle at 80% 20%, var(--terra-light) 1px, transparent 1px),
-    radial-gradient(circle at 50% 50%, var(--sage-light) 0.5px, transparent 0.5px);
-  /* Layered dot patterns for texture */
-
-  background-size: 60px 60px, 80px 80px, 40px 40px;
-  /* Size of each dot pattern layer */
 }
 
 .hero-glow {
   position: absolute;
   /* Positioned behind hero content */
 
-  width: 600px;
-  height: 600px;
+  width: 1600px;
+  height: 1600px;
   /* Size of glow */
 
   border-radius: 50%;
@@ -345,7 +334,7 @@ body {
 }
 
 .hero-glow-1 {
-  background: var(--terra);
+  background: var(--white);
   /* Terra-colored glow */
 
   top: -200px;
@@ -477,7 +466,7 @@ body {
   font-size: clamp(16px, 2vw, 20px);
   /* Responsive subtitle size */
 
-  color: rgba(245, 237, 224, 0.7);
+  color: rgba(245, 237, 224, 1);
   /* Slightly transparent text */
 
   max-width: 600px;
@@ -1806,7 +1795,7 @@ ui <- page_navbar(
              tags$div(class = "hero-inner",
                       # The centered content area inside the banner.
                       
-                      tags$h1(class = "hero-title", HTML("Landscape<br>Through <span>Time</span>")),
+                      tags$h1(class = "hero-title", HTML("Landscape<br>Through Time")),
                       # The main title. HTML() lets us use raw HTML tags like <br> and <span>.
                       # The <span> around "Time" gets a gradient color treatment via CSS.
                       
