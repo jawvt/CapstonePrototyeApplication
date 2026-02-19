@@ -2046,14 +2046,10 @@ ui <- page_navbar(
                
                tags$div(class = "admin-toolbar",
                         actionButton("refresh_admin", "Refresh", class = "btn btn-refresh"),
-                        # Reloads submissions data from disk in case changes were made elsewhere.
-                        
                         actionButton("approve_submission", "Approve Selected", class = "btn btn-approve"),
-                        # Approves the row selected in the table below, moving it to the
-                        # approved data file so it appears in the Compare tab.
-                        
-                        actionButton("reject_submission", "Reject Selected", class = "btn btn-reject")
-                        # Marks the selected row as "Rejected" in the submissions file.
+                        actionButton("reject_submission", "Reject Selected", class = "btn btn-reject"),
+                        actionButton("delete_submission", "Delete Selected", class = "btn btn-reject",
+                                     style = "background: #8B0000; border-color: #8B0000; color: white;")
                ),
                
                DTOutput("admin_table")
@@ -2259,19 +2255,14 @@ server <- function(input, output, session) {
   # automatically re-runs (like a spreadsheet cell formula updating).
   rv <- reactiveValues(
     admin_auth = FALSE,
-    # Tracks whether the admin has successfully logged in. Starts as FALSE.
-    
     submission_success = FALSE,
-    # Tracks whether the last form submission was successful.
-    
     submission_error = NULL,
-    # Stores an error message string if submission failed. NULL means no error.
-    
     submissions = load_data(SUBMISSIONS_FILE),
-    # Loads all existing submissions from disk on startup.
-    
-    approved = load_data(APPROVED_FILE)
-    # Loads all approved submissions from disk on startup.
+    approved = load_data(APPROVED_FILE),
+    approved_trigger = 0
+    # A numeric counter used to manually trigger re-renders of anything
+    # that depends on the approved data. Incrementing it forces Shiny
+    # to invalidate and re-run those outputs.
   )
   
   
@@ -2354,7 +2345,8 @@ server <- function(input, output, session) {
         # The ~ means "use this column from the data". These set marker positions.
         label = ~title,
         # label is the text that appears when you hover over a marker.
-        popup = ~paste0("<b>", title, "</b><br>", artist, ", ", year)
+        popup = ~paste0("<b>", title, "</b><br>", artist, ", ", year,
+                        "<br><small>Lat: ", latitude, " | Lon: ", longitude, "</small>")
         # popup is the HTML shown when you click a marker. <b> bolds the title.
         # <br> is a line break. This produces: "Title\nArtist, Year"
       ) %>%
@@ -2500,6 +2492,10 @@ server <- function(input, output, session) {
   # ── COMPARISON GALLERY ───────────────────────────────────────────────────
   # Generates the grid of approved photo thumbnails shown on the Compare tab.
   output$comparison_gallery <- renderUI({
+    rv$approved_trigger
+    # Reading this value here means the output will re-render whenever
+    # approved_trigger is incremented, even if rv$approved change isn't
+    # detected automatically.
     approved <- rv$approved
     
     if (nrow(approved) == 0) {
@@ -2614,15 +2610,36 @@ server <- function(input, output, session) {
   })
   
   
-  # ── REJECT SUBMISSION ────────────────────────────────────────────────────
+  # ── REJECT SUBMISSION ──────────────────────────────────────────────────────
   observeEvent(input$reject_submission, {
     if (length(input$admin_table_rows_selected) > 0) {
       idx <- input$admin_table_rows_selected
       rv$submissions[idx, "approval_status"] <- "Rejected"
-      # Mark as rejected in the table (does NOT move to approved, so it won't
-      # appear on the Compare tab).
       save_data(rv$submissions, SUBMISSIONS_FILE)
       showNotification("Rejected.", type = "warning")
+    }
+  })
+  
+  # ── DELETE SUBMISSION ──────────────────────────────────────────────────────
+  observeEvent(input$delete_submission, {
+    if (length(input$admin_table_rows_selected) > 0) {
+      idx <- input$admin_table_rows_selected
+      # Grab the submission_id of the row being deleted before removing it.
+      # This is used to find and remove the matching row in the approved data.
+      deleted_id <- rv$submissions[idx, "submission_id"]
+      
+      rv$submissions <- rv$submissions[-idx, ]
+      # Remove the selected row from the submissions data frame entirely.
+      save_data(rv$submissions, SUBMISSIONS_FILE)
+      # Persist the updated submissions to disk.
+      
+      rv$approved <- rv$approved[rv$approved$submission_id != deleted_id, ]
+      save_data(rv$approved, APPROVED_FILE)
+      rv$approved_trigger <- rv$approved_trigger + 1
+      # Increment the trigger counter to force comparison_gallery and any
+      # other outputs watching approved_trigger to immediately re-render.
+      
+      showNotification("Deleted.", type = "error")
     }
   })
   
