@@ -15,3 +15,39 @@ style: — CSS or UI changes
 refactor: — restructuring code without changing behavior
 data: — changes to data files like CSVs
 docs: — comments or documentation
+
+
+Basic Commands:
+
+git init: Initialize a new Git repository
+git clone <repository>: Clone an existing repository
+git status: Check the status of your repository
+git add <file>: Add a file to the staging area
+git add .: Add all changed files to the staging area
+git commit -m "message": Commit changes with a message
+git log: View commit history
+git log --oneline: View condensed commit history
+
+Branching:
+
+git branch: List all branches
+git branch <branch-name>: Create a new branch
+git checkout <branch-name>: Switch to a branch
+git checkout -b <branch-name>: Create a new branch and switch to it
+git merge <branch-name>: Merge a branch into the current branch
+git branch -d <branch-name>: Delete a branch
+
+Remote Repositories:
+
+git remote add <remote-name> <remote-url>: Add a remote repository
+git remote -v: View remote repositories
+git push <remote-name> <branch-name>: Push changes to a remote branch
+git pull <remote-name> <branch-name>: Pull changes from a remote branch
+git fetch <remote-name>: Fetch changes from a remote repository
+
+Undoing Changes:
+
+git checkout -- <file>: Discard changes in a file
+git reset <file>: Unstage a file
+git reset --hard: Discard all changes and revert to the last commit
+git revert <commit>: Create a new commit that undoes the changes of a previous commit

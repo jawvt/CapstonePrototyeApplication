@@ -594,7 +594,7 @@ body {
   letter-spacing: 2px;
   /* Space between letters */
 
-  color: rgba(245, 237, 224, 0.5);
+  color: rgba(245, 237, 224, 1);
   /* Semi-transparent label text */
 
   font-weight: 600;
@@ -753,13 +753,13 @@ body {
 }
 
 .section-header .accent-line {
-  width: 50px;
+  width: 200px;
   /* Width of the small line under the header */
 
-  height: 4px;
+  height: 5px;
   /* Thickness of the accent line */
 
-  background: linear-gradient(90deg, var(--terra), var(--amber));
+  background: linear-gradient(90deg, var(--terra), var(--terra));
   /* Gradient color for visual emphasis */
 
   border-radius: 2px;
@@ -1811,7 +1811,7 @@ ui <- page_navbar(
                       # The <span> around "Time" gets a gradient color treatment via CSS.
                       
                       tags$p(class = "hero-subtitle",
-                             "Journey through 150 years of Western landscapes. Compare Albert Bierstadt's iconic paintings with modern photographs from the same locations."
+                             "Explore Albert Bierstadt's iconic paintings."
                       ),
                       # Subtitle/description text below the main title.
                       
