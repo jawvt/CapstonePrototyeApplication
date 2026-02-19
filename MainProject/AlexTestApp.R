@@ -703,7 +703,7 @@ body {
   text-align: center;
   /* Center all content inside the header */
 
-  padding: 60px 24px 40px;
+  padding: 20px 24px 40px;
   /* Vertical and horizontal spacing around the section header */
 }
 
@@ -926,6 +926,10 @@ body {
 
   height: 600px;
   /* Fixed map height */
+  
+  width: 65%;
+  
+  margin-bottom: 80px;
 }
 
 .leaflet-container {
@@ -934,6 +938,8 @@ body {
 
   border-radius: px;
   /* Rounded corners (note: 'px' is incomplete, should be a number like 24px) */
+  
+
 }
 
 
