@@ -44,3 +44,9 @@ added delete function on the admin, update and connect so that the comparisons a
 2/18 7:54
 
 testing branches
+
+2/18
+
+change csv file path to renamed project folder (MainProject)
+
+updated tips text file to include commit formatting practices

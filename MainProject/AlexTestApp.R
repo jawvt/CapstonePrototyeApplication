@@ -60,7 +60,7 @@ save_data <- function(data, file_path) saveRDS(data, file_path)
 # How can we make this dynamic?
 ############################################
 
-paintings_csv <- "/Users/jawvt/Documents/Capstone/CapstonePrototyeApplication/AlexTestApplication4/BPaintings.csv"
+paintings_csv <- "/Users/jawvt/Documents/Capstone/CapstonePrototyeApplication/MainProject/BPaintings.csv"
 paintings_data <- read.csv(paintings_csv, stringsAsFactors = FALSE)
 
 ############################################
