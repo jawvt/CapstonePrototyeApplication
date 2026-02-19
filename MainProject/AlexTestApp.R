@@ -60,7 +60,7 @@ save_data <- function(data, file_path) saveRDS(data, file_path)
 # How can we make this dynamic?
 ############################################
 
-paintings_csv <- "/Users/jawvt/Documents/Capstone/CapstonePrototyeApplication/AlexTestApplication4/BPaintings.csv"
+paintings_csv <- "/Users/jawvt/Documents/Capstone/CapstonePrototyeApplication/MainProject/BPaintings.csv"
 paintings_data <- read.csv(paintings_csv, stringsAsFactors = FALSE)
 
 ############################################
@@ -1862,7 +1862,6 @@ ui <- page_navbar(
     
     tags$div(class = "section-header",
              tags$h2("The Collection"),
-             tags$p("Click any painting to explore it in full detail with Ken Burns animation."),
              tags$div(class = "accent-line")
              # accent-line is a small decorative horizontal line rendered via CSS.
     ),
@@ -1886,7 +1885,7 @@ ui <- page_navbar(
     
     tags$div(class = "section-header",
              tags$h2("Explore Locations"),
-             tags$p("See where Bierstadt set up his easel across the American West."),
+             tags$p("See where Bierstadt set up his easel across America."),
              tags$div(class = "accent-line")
     ),
     
@@ -2501,8 +2500,8 @@ server <- function(input, output, session) {
     if (nrow(approved) == 0) {
       # If no submissions have been approved yet, show a placeholder message.
       return(tags$div(class = "no-comparisons",
-                      HTML("&#127796; No approved comparisons yet. Be the first to contribute!")
-                      # &#127796; is the 🌴 tree emoji.
+                      HTML("No approved comparisons yet. Be the first to contribute!")
+                      
       ))
     }
     
