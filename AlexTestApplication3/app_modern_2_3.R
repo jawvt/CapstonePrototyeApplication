@@ -114,7 +114,7 @@ html { scroll-behavior: smooth; }
 body {
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--cream);
-  color: var(--cream);
+  color: var(--charcoal);
   line-height: 1.6;
   overflow-x: hidden;
 }
@@ -123,7 +123,7 @@ body {
    NAVBAR OVERRIDES
    ====================================================================== */
 .navbar {
-  background: var(--forest) !important; 
+  background: var(--forest) !important;
   border-bottom: 3px solid var(--terra) !important;
   padding: 0 !important;
   min-height: 64px;
@@ -281,7 +281,7 @@ body {
 }
 
 .hero-title span {
-  background: linear-gradient(135deg, var(--white) 0%, var(--terra) 100%);
+  background: linear-gradient(135deg, var(--terra-light) 0%, var(--amber-light) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -378,7 +378,6 @@ body {
   transform: translateY(0) scale(0.98);
 }
 
-/* middle right button*/
 .btn-sage {
   background: transparent;
   color: var(--sage-light) !important;
@@ -441,7 +440,7 @@ body {
 }
 
 .section-header .accent-line {
-  width: 51px;
+  width: 50px;
   height: 4px;
   background: linear-gradient(90deg, var(--terra), var(--amber));
   border-radius: 2px;
@@ -515,7 +514,7 @@ body {
   top: 16px;
   right: 16px;
   background: rgba(30, 51, 40, 0.8);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
   color: var(--amber-light);
   font-size: 12px;
   font-weight: 700;
@@ -571,18 +570,23 @@ body {
 /* ======================================================================
    MAP
    ====================================================================== */
-
-.map-container {
-  border-radius: 24px;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  height: 600px;
-  margin-bottom: 150px;
+.map-wrap {
+  padding: 0 24px 60px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-.leaflet-container {
-  height: 100%;
-  border-radius: 24px;
+.map-container {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  border: 3px solid var(--sand-dark);
+  height: 550px;
+}
+
+.map-container .leaflet-container {
+  height: 550px !important;
+  min-height: 550px !important;
 }
 
 /* ======================================================================
@@ -1144,7 +1148,7 @@ ui <- page_navbar(
     ),
     tags$div(class = "map-wrap",
       tags$div(class = "map-container",
-        leafletOutput("main_map", height = "100%")
+        leafletOutput("main_map", height = "550px")
       )
     )
   ),
@@ -1361,7 +1365,12 @@ ui <- page_navbar(
         if (e.target && e.target.getAttribute('data-value') === 'Map') {
           setTimeout(function() {
             window.dispatchEvent(new Event('resize'));
-          }, 250);
+            var map = document.querySelector('.leaflet-container');
+            if (map && map._leaflet_id) {
+              var mapObj = $(map).data('leaflet-map');
+              if (mapObj) mapObj.invalidateSize();
+            }
+          }, 200);
         }
       });
     ")))
@@ -1421,7 +1430,12 @@ server <- function(input, output, session) {
       addMarkers(
         lng = ~longitude, lat = ~latitude,
         label = ~title,
-        popup = ~paste0("<b>", title, "</b><br>", artist, ", ", year)
+        popup = ~paste0(
+          "<div style='font-family: DM Sans, sans-serif; min-width: 200px;'>",
+          "<strong style='font-size: 15px; color: #1E3328;'>", title, "</strong><br>",
+          "<span style='color: #C2714F; font-weight: 600;'>", artist, " \u2022 ", year, "</span>",
+          "</div>"
+        )
       ) %>%
       fitBounds(
         lng1 = min(paintings_data$longitude) - 2, lat1 = min(paintings_data$latitude) - 2,
@@ -1429,14 +1443,11 @@ server <- function(input, output, session) {
       )
   })
 
-  # Prevent Shiny from suspending the map output when tab is hidden
-  outputOptions(output, "main_map", suspendWhenHidden = FALSE)
-
-  # Trigger resize when Map tab becomes visible
+  # Fix Leaflet rendering when switching to Map tab
   observeEvent(input$main_tabs, {
     if (input$main_tabs == "Map") {
-      shinyjs::delay(200, {
-        shinyjs::runjs("window.dispatchEvent(new Event('resize'));")
+      session$onFlushed(function() {
+        leafletProxy("main_map") %>% invokeMethod(NULL, "invalidateSize")
       })
     }
   })
