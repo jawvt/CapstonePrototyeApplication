@@ -41,12 +41,14 @@ added gps coordinates to point pop ups in the map
 
 added delete function on the admin, update and connect so that the comparisons also get deleted.
 
-2/18 7:54
+2/18 7:54 pm
 
 testing branches
 
-2/18
+2/18 11:11 pm
 
 change csv file path to renamed project folder (MainProject)
 
 updated tips text file to include commit formatting practices
+
+changed text on gallery and compare pages
