@@ -66,9 +66,26 @@ removed <span> from time in the title
 
 changed hero glow
 
-2/19 11:14 am
+2/20 7:20 pm
+
+Used claude to help write code to improve the map tab and add a new container. Updated CSS, HTML, and UI and Server code.
+
+Submitted points now show up on map
+
+Changed points to red and blue
 
 change heading padding to be closer to nav bar
 
 added white space underneath map
 
+2/20 7:37pm
+
+Made map larger in the container
+
+Changed basemap to imagery 
+
+Set inital view closer to points on map
+
+2/20 8:16 pm
+
+Added new feature where basemap changes the further you zoom in.
