@@ -918,7 +918,7 @@ body {
 
 .map-split-layout {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: 3fr 1fr;
   gap: 24px;
   padding: 0 24px 60px;
   max-width: 1400px;
@@ -2529,8 +2529,7 @@ server <- function(input, output, session) {
   })
   
   
-  # -- MAP (UPDATED) --------------------------------------------------------
-  # UPDATED: Replaced default pin markers with red/blue circle markers.
+  # -- MAP --------------------------------------------------------
   # Changed base tiles to CartoDB.Positron for a cleaner look.
   # Added split layout with info panel, marker click detection, and
   # dynamic blue markers for approved user submissions.
@@ -2539,7 +2538,7 @@ server <- function(input, output, session) {
   
   output$main_map <- renderLeaflet({
     leaflet() %>%
-      addProviderTiles(providers$CartoDB.Positron) %>%
+      addProviderTiles(providers$Esri.WorldImagery) %>%
       # CartoDB.Positron provides a cleaner, modern base map
       
       addCircleMarkers(
@@ -2562,10 +2561,7 @@ server <- function(input, output, session) {
         )
       ) %>%
       
-      fitBounds(
-        lng1 = min(paintings_data$longitude) - 2, lat1 = min(paintings_data$latitude) - 2,
-        lng2 = max(paintings_data$longitude) + 2, lat2 = max(paintings_data$latitude) + 2
-      )
+      setView(lng = -98.5, lat = 39.8, zoom = 4)
   })
   
   # -- SUBMISSION MARKERS (BLUE CIRCLES) (UPDATED) ----------------------------
