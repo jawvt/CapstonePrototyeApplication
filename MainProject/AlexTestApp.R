@@ -2464,6 +2464,9 @@ server <- function(input, output, session) {
     selected_type = NULL      # UPDATED: "painting" or "submission" to distinguish marker types
   )
   
+  # UPDATED: Tracks which basemap is currently displayed to avoid unnecessary redraws
+  current_basemap <- reactiveVal("minimal")
+  
   
   # -- HERO BUTTON NAVIGATION ----------------------------------------------
   # These two blocks listen for clicks on the hero buttons and tell the browser
@@ -2529,7 +2532,8 @@ server <- function(input, output, session) {
   })
   
   
-  # -- MAP --------------------------------------------------------
+  # -- MAP (UPDATED) --------------------------------------------------------
+  # UPDATED: Replaced default pin markers with red/blue circle markers.
   # Changed base tiles to CartoDB.Positron for a cleaner look.
   # Added split layout with info panel, marker click detection, and
   # dynamic blue markers for approved user submissions.
@@ -2538,7 +2542,8 @@ server <- function(input, output, session) {
   
   output$main_map <- renderLeaflet({
     leaflet() %>%
-      addProviderTiles(providers$Esri.WorldImagery) %>%
+      addProviderTiles(providers$CartoDB.Positron, group = "minimal") %>%
+      # UPDATED: Added group = "minimal" so tiles can be swapped on zoom.
       # CartoDB.Positron provides a cleaner, modern base map
       
       addCircleMarkers(
@@ -2561,6 +2566,7 @@ server <- function(input, output, session) {
         )
       ) %>%
       
+      # UPDATED: setView centers on the US at zoom 4 instead of fitBounds
       setView(lng = -98.5, lat = 39.8, zoom = 4)
   })
   
@@ -2703,6 +2709,32 @@ server <- function(input, output, session) {
   
   outputOptions(output, "main_map", suspendWhenHidden = FALSE)
   # Keeps the map rendered even when the Map tab isn't visible
+  
+  # -- BASEMAP AUTO-SWITCH ------------------------------------------
+  # UPDATED: Switches from minimal CartoDB tiles to Esri satellite imagery
+  # when the user zooms in past level 8, and back when they zoom out.
+  # Uses leafletProxy to swap tile layers without re-rendering the map.
+  observeEvent(input$main_map_zoom, {
+    zoom <- input$main_map_zoom
+    if (is.null(zoom)) return()
+    
+    proxy <- leafletProxy("main_map")
+    
+    if (zoom >= 8 && current_basemap() != "satellite") {
+      # Zoomed in -- switch to satellite imagery
+      proxy %>%
+        clearGroup("minimal") %>%
+        addProviderTiles(providers$Esri.WorldImagery, group = "satellite")
+      current_basemap("satellite")
+      
+    } else if (zoom < 8 && current_basemap() != "minimal") {
+      # Zoomed out -- switch back to minimal tiles
+      proxy %>%
+        clearGroup("satellite") %>%
+        addProviderTiles(providers$CartoDB.Positron, group = "minimal")
+      current_basemap("minimal")
+    }
+  })
   
   # Triggers a window resize event when the Map tab is opened
   observeEvent(input$main_tabs, {
