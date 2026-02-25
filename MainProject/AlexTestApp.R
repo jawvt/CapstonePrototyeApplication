@@ -514,8 +514,10 @@ body {
   display: grid;
   /* Use grid for equal-width stats */
 
-  grid-template-columns: repeat(3, 1fr);
-  /* Three columns */
+  grid-template-columns: 1fr;
+  max-width: 240px;
+  margin: 70px auto 0;
+  /* one columns */
 
   gap: 2px;
   /* Small gap between stats */
@@ -2008,21 +2010,9 @@ ui <- page_navbar(
                                         tags$div(class = "stat-value", as.character(nrow(paintings_data))),
                                         
                                         tags$div(class = "stat-label", "Locations")
-                               ),
-                               
-                               tags$div(class = "stat-item",
-                                        tags$div(class = "stat-value", textOutput("stat_submissions", inline = TRUE)),
-                                        # textOutput() displays a reactive value from the server.
-                                        # "stat_submissions" is updated live whenever a new submission is added.
-                                        # inline = TRUE means it renders as inline text, not a block.
-                                        tags$div(class = "stat-label", "Submissions")
-                               ),
-                               
-                               tags$div(class = "stat-item",
-                                        tags$div(class = "stat-value", textOutput("stat_approved", inline = TRUE)),
-                                        # Same as above but for approved comparisons.
-                                        tags$div(class = "stat-label", "Comparisons")
                                )
+                           
+                               
                       )
              )
     )
