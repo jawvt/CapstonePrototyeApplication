@@ -1906,6 +1906,101 @@ table.dataTable thead th {
   box-shadow: 0 0 0 4px rgba(107,143,113,0.15) !important; 
   /* Adds a subtle focus ring to indicate active state */
 }
+
+/* #########################################
+   DARK MODE
+   Overrides root variables when body has .dark-mode class.
+   ######################################### */
+
+body.dark-mode {
+  --cream: #1a1f2e;
+  --sand: #2a2f3e;
+  --sand-dark: #353a4a;
+  --white: #242938;
+  --charcoal: #e8e0d4;
+  --charcoal-light: #b8b0a4;
+  --forest: #c8dcc8;
+  --forest-mid: #2a4a38;
+}
+
+/* Navbar stays dark in both modes */
+body.dark-mode .navbar {
+  background: #111620 !important;
+  border-bottom-color: rgba(255,255,255,0.1) !important;
+}
+
+/* Hero stays dark in both modes */
+body.dark-mode .hero-banner {
+  background: linear-gradient(135deg, #111620 100%, #1a2030 50%, #111620 100%);
+}
+
+/* Cards and panels need darker backgrounds */
+body.dark-mode .painting-card,
+body.dark-mode .form-card,
+body.dark-mode .admin-login-card,
+body.dark-mode .map-info-panel,
+body.dark-mode .dataTables_wrapper {
+  background: #242938;
+  border-color: #353a4a;
+}
+
+/* Section header titles */
+body.dark-mode .section-header h2 {
+  color: #c8dcc8;
+}
+
+/* Painting card text */
+body.dark-mode .painting-title {
+  color: #c8dcc8;
+}
+
+body.dark-mode .painting-context,
+body.dark-mode .map-info-context {
+  color: #b8b0a4;
+}
+
+/* Form inputs */
+body.dark-mode .form-card .form-control,
+body.dark-mode .form-card input,
+body.dark-mode .form-card select,
+body.dark-mode .form-card textarea,
+body.dark-mode .upload-zone,
+body.dark-mode .selectize-input {
+  background: #1a1f2e !important;
+  border-color: #353a4a !important;
+  color: #e8e0d4 !important;
+}
+
+/* DataTable overrides */
+body.dark-mode table.dataTable thead th {
+  color: #c8dcc8;
+  border-bottom-color: #353a4a !important;
+}
+
+body.dark-mode table.dataTable tbody td {
+  color: #b8b0a4;
+}
+
+/* Coord boxes on map panel */
+body.dark-mode .coord-box {
+  background: #1a1f2e;
+  border-color: #353a4a;
+}
+
+body.dark-mode .coord-value {
+  color: #c8dcc8;
+}
+
+/* Comparison no-results text */
+body.dark-mode .no-comparisons {
+  color: #b8b0a4;
+}
+
+/* Toggle button appearance in dark mode */
+body.dark-mode #theme-toggle {
+  border-color: rgba(200,220,200,0.3);
+  color: #c8dcc8;
+}
 "
 
 ################################################################################
@@ -2198,6 +2293,14 @@ ui <- page_navbar(
   
   # -- SPACER --------------------------------------------------------------
   nav_spacer(),
+  nav_item(
+    tags$button(
+      id = "theme-toggle",
+      onclick = "toggleDarkMode()",
+      style = "background: none; border: 2px solid rgba(245,237,224,0.3); border-radius: 50px; color: var(--sand); padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 600; letter-spacing: 0.5px; transition: all 0.3s;",
+      HTML("&#9790; Dark Mode")
+    )
+  ),
   # Pushes everything after it (the Login tab) to the far right of the navbar.
   
   
@@ -2424,6 +2527,17 @@ ui <- page_navbar(
           }, 250);
         }
       });
+      
+      // -- DARK MODE TOGGLE ------------------------------------------
+window.toggleDarkMode = function() {
+  document.body.classList.toggle('dark-mode');
+  var btn = document.getElementById('theme-toggle');
+  if (document.body.classList.contains('dark-mode')) {
+    btn.innerHTML = '&#9788; Light Mode';
+  } else {
+    btn.innerHTML = '&#9790; Dark Mode';
+  }
+};
     ")))
   )
 )
