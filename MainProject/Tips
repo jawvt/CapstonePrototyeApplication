@@ -9,6 +9,19 @@ then replacet ags$style(HTML(app_css)) with
 tags$link(rel = "stylesheet", href = "styles.css")
 when done developing
 
+
+To update your branch: WHEN MAIN IS UPDATED AND MERGED WITH UPDATES,
+pull everthing into main - go to personal branch - git checkout in terminal - git merge main in terminal
+
+
+
+
+
+
+
+
+
+
 feat: — adding new functionality
 fix: — fixing a bug
 style: — CSS or UI changes
