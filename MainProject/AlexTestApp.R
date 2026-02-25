@@ -1,9 +1,8 @@
 ############################################
-#
 # Landscape Through Time
 # Alex, Ben Emily
 # Code started 2/18/26
-# 
+#
 # Project Description:
 #
 # Interactive application where users are able to view historical art located in desired regions,
@@ -20,15 +19,14 @@ library(DT)
 library(shinyjs)
 
 ############################################
-# User Inupt Data Storage
+# User Input Data Storage
 # This code manages local storage for the app:
 # 1. Sets up a local folder "app_data" to store data files.
 # 2. Defines paths for submissions and approved data (.rds files).
 # 3. Creates the folder if it doesn't exist.
 # 4. Provides functions to load data from an .rds file (or create an empty
 #    data frame if the file doesn't exist) and to save data back to an .rds file.
-#
-# Non local data storage for final application?
+# Non-local data storage for final application?
 ############################################
 
 LocalDataDirectory <- "app_data"
@@ -60,7 +58,7 @@ save_data <- function(data, file_path) saveRDS(data, file_path)
 # How can we make this dynamic?
 ############################################
 
-paintings_csv <- "/Users/jawvt/Documents/Capstone/CapstonePrototyeApplication/MainProject/BPaintings.csv"
+paintings_csv <- "BPaintings.csv"
 paintings_data <- read.csv(paintings_csv, stringsAsFactors = FALSE)
 
 ############################################
