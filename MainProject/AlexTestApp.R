@@ -150,8 +150,8 @@ body {
   background: var(--forest) !important;
   /* Dark forest background color for navbar */
 
-  border-bottom: 3px solid var(--terra) !important;
-  /* Terra-colored bottom border for accent */
+  border-bottom: 4px solid var(--white) !important;
+  /* white-colored bottom border for accent */
 
   padding: 0 !important;
   /* Remove default padding */
@@ -165,7 +165,7 @@ body {
   position: sticky;
   /* Keep navbar fixed at the top when scrolling */
 
-  top: 0;
+  top: 2;
   /* Stick to the top edge */
 
   z-index: 999;
@@ -221,7 +221,7 @@ body {
   color: var(--white) !important;
   /* White text for active link */
 
-  border-bottom-color: var(--terra) !important;
+  border-bottom-color: var(--white) !important;
   /* Terra-colored underline for active link */
 
   background: rgba(194, 113, 79, 0.1);
@@ -253,11 +253,15 @@ body {
 .tab-content {
   background: var(--cream);
   /* Sets the background color of the tab content area using the --cream variable */
+  
 }
 
 .tab-pane {
   animation: tabFadeIn 0.4s var(--ease);
   /* Applies the tabFadeIn animation over 0.4 seconds using the custom easing curve --ease */
+  padding: 0 !important;
+  margin: 0 !important;
+}
 }
 
 @keyframes tabFadeIn {
