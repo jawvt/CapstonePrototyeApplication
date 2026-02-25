@@ -7,6 +7,8 @@
 #
 # Interactive application where users are able to view historical art located in desired regions,
 # and have the ability to find the physical locations of the paintings using an interactive map-based design.
+#
+#
 ############################################
 
 library(shiny)
