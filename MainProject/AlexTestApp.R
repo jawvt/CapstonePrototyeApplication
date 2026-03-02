@@ -1,13 +1,14 @@
 ############################################
+#
 # Landscape Through Time
 # Alex, Ben Emily
 # Code started 2/18/26
-#
+# 
 # Project Description:
 #
 # Interactive application where users are able to view historical art located in desired regions,
 # and have the ability to find the physical locations of the paintings using an interactive map-based design.
-#
+# 
 #
 ############################################
 
@@ -19,14 +20,15 @@ library(DT)
 library(shinyjs)
 
 ############################################
-# User Input Data Storage
+# User Inupt Data Storage
 # This code manages local storage for the app:
 # 1. Sets up a local folder "app_data" to store data files.
 # 2. Defines paths for submissions and approved data (.rds files).
 # 3. Creates the folder if it doesn't exist.
 # 4. Provides functions to load data from an .rds file (or create an empty
 #    data frame if the file doesn't exist) and to save data back to an .rds file.
-# Non-local data storage for final application?
+#
+# Non local data storage for final application?
 ############################################
 
 LocalDataDirectory <- "app_data"
@@ -58,7 +60,7 @@ save_data <- function(data, file_path) saveRDS(data, file_path)
 # How can we make this dynamic?
 ############################################
 
-paintings_csv <- "BPaintings.csv"
+paintings_csv <- "/Users/jawvt/Documents/Capstone/CapstonePrototyeApplication/MainProject/BPaintings.csv"
 paintings_data <- read.csv(paintings_csv, stringsAsFactors = FALSE)
 
 ############################################
@@ -90,706 +92,448 @@ paintings_data <- read.csv(paintings_csv, stringsAsFactors = FALSE)
 ############################################
 
 app_css <- "
-/* #########################################
-   CSS VARIABLES - EARTHY PALETTE
-     - Colors, shades, and tints
-     - Border radii for rounded corners
-     - Shadow styles for consistent elevation
-     - Easing function for smooth transitions
-     - Makes it easy to maintain a consistent look and update styles site-wide.
-   ######################################### */
+/* ==============================================
+   GLASSMORPHISM THEME
+   Landscape Through Time
+
+   KEY CONCEPT: Frosted-glass panels floating over
+   rich landscape photography. Translucent layers,
+   soft blurs, light refractions, and luminous accents.
+
+   TABLE OF CONTENTS:
+   - CSS Variables
+   - Reset & Base
+   - Navbar Overrides
+   - Tab Content Wrapper
+   - Hero / Home Tab
+   - Button Styles
+   - Section Headers
+   - Painting Cards
+   - Map (Split Layout)
+   - Form
+   - Comparisons
+   - Lightbox (Paintings)
+   - Lightbox (Comparisons)
+   - Admin
+   - Alerts
+   - Responsive
+   - Shiny Specific Overrides
+   ============================================== */
+
+/* ==============================================
+   CSS VARIABLES - GLASSMORPHISM PALETTE
+   ============================================== */
 :root {
-  --terra: #C2714F;
-  --terra-dark: #A85D3F;
-  --terra-light: #D4917A;
-  --sage: #6B8F71;
-  --sage-dark: #567360;
-  --sage-light: #8FB396;
-  --amber: #D4A843;
-  --amber-light: #EBC76D;
-  --forest: #1E3328;
-  --forest-mid: #2A4A38;
-  --sand: #F5EDE0;
-  --sand-dark: #E8DCCB;
-  --cream: #FBF8F3;
-  --charcoal: #2D2D2D;
-  --charcoal-light: #4A4A4A;
-  --white: #FFFFFF;
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --shadow-sm: 0 2px 8px rgba(30, 51, 40, 0.08);
-  --shadow-md: 0 8px 30px rgba(30, 51, 40, 0.12);
-  --shadow-lg: 0 16px 50px rgba(30, 51, 40, 0.18);
+  /* Glass effect values */
+  --glass-bg: rgba(255, 255, 255, 0.12);
+  --glass-bg-strong: rgba(255, 255, 255, 0.18);
+  --glass-bg-light: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.25);
+  --glass-border-subtle: rgba(255, 255, 255, 0.12);
+  --glass-blur: 20px;
+  --glass-blur-heavy: 40px;
+
+  /* Accent colors - luminous versions of the original earthy tones */
+  --terra: #E8976B;
+  --terra-dark: #C4724E;
+  --terra-light: #F2B896;
+  --terra-glow: rgba(232, 151, 107, 0.4);
+  --sage: #7FA88A;
+  --sage-dark: #5F8868;
+  --sage-light: #A0C4A8;
+  --sage-glow: rgba(127, 168, 138, 0.35);
+  --amber: #E2B94C;
+  --amber-light: #EDD07A;
+  --amber-glow: rgba(226, 185, 76, 0.3);
+
+  /* Surfaces */
+  --surface-dark: #0f1a14;
+  --surface-dark-mid: #152420;
+  --surface-card: rgba(255, 255, 255, 0.08);
+
+  /* Text */
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-muted: rgba(255, 255, 255, 0.45);
+
+  /* Layout */
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-xl: 36px;
+
+  /* Shadows */
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.25);
+  --shadow-glass-lg: 0 16px 48px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 40px rgba(232, 151, 107, 0.15);
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* #########################################
+/* ==============================================
    RESET & BASE
-   ######################################### */
+   ============================================== */
 * { margin: 0; padding: 0; box-sizing: border-box; }
-
 html { scroll-behavior: smooth; }
 
 body {
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: var(--cream);
-  color: var(--charcoal);
+  background: var(--surface-dark);
+  color: var(--text-primary);
   line-height: 1.6;
   overflow-x: hidden;
 }
 
-/* #########################################
+/* ==============================================
    NAVBAR OVERRIDES
-   Custom styles to override default Bootstrap navbar
-   ######################################### */
-
+   Translucent glass bar with blur effect
+   ============================================== */
 .navbar {
-  background: var(--forest) !important;
-  /* Dark forest background color for navbar */
-
-  border-bottom: 4px solid var(--white) !important;
-  /* white-colored bottom border for accent */
-
+  background: rgba(15, 26, 20, 0.6) !important;
+  backdrop-filter: blur(var(--glass-blur-heavy));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
+  border-bottom: 1px solid var(--glass-border-subtle) !important;
   padding: 0 !important;
-  /* Remove default padding */
-
   min-height: 64px;
-  /* Set a consistent minimum height */
-
-  box-shadow: 0 4px 20px rgba(30, 51, 40, 0.25);
-  /* Add subtle shadow for depth */
-
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
   position: sticky;
-  /* Keep navbar fixed at the top when scrolling */
-
-  top: 2;
-  /* Stick to the top edge */
-
+  top: 0;
   z-index: 999;
-  /* Ensure navbar stays above other elements */
 }
 
 .navbar-nav .nav-link {
   font-family: 'DM Sans', sans-serif !important;
-  /* Use custom font for navbar links */
-
   font-weight: 600 !important;
-  /* Bold text for readability */
-
-  font-size: 14px !important;
-  /* Standard font size for links */
-
-  color: rgba(245, 237, 224, 0.75) !important;
-  /* Light text color */
-
-  padding: 20px 20px !important;
-  /* Spacing around links */
-
-  letter-spacing: 0.5px;
-  /* Small spacing between letters */
-
+  font-size: 13px !important;
+  color: var(--text-secondary) !important;
+  padding: 22px 24px !important;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
-  /* Uppercase text for style consistency */
-
   transition: all 0.3s var(--ease);
-  /* Smooth hover and active transitions */
-
-  border-bottom: 3px solid transparent;
-  /* Space for active link underline */ 
-
-  margin-bottom: -3px;
-  /* Align underline with navbar bottom */
-
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   position: relative;
-  /* Needed for pseudo-elements or active underline positioning */
 }
 
 .navbar-nav .nav-link:hover {
-  color: var(--sand) !important;
-  /* Change text color on hover */
-
-  background: rgba(255,255,255,0.1);
-  /* Subtle background highlight on hover */
+  color: var(--text-primary) !important;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .navbar-nav .nav-link.active,
 .navbar-nav .nav-item.active .nav-link,
 .navbar-nav .nav-link[aria-selected='true'] {
-  color: var(--white) !important;
-  /* White text for active link */
-
-  border-bottom-color: var(--white) !important;
-  /* Terra-colored underline for active link */
-
-  background: rgba(194, 113, 79, 0.1);
-  /* Slight highlight behind active link */
+  color: var(--terra-light) !important;
+  border-bottom-color: var(--terra) !important;
+  background: rgba(232, 151, 107, 0.08);
 }
 
-/* Hamburger toggle for mobile */
 .navbar-toggler {
-  border-color: rgba(245, 237, 224, 0.3) !important;
-  /* Light border around hamburger button */
-
-  color: var(--sand) !important;
-  /* Hamburger icon color */
-
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: var(--text-secondary) !important;
   margin-right: 16px;
-  /* Space from the right edge */
 }
 
 .navbar-toggler-icon {
   filter: invert(1);
-  /* Invert icon color so it's visible on dark background */
 }
 
-
-/* #########################################
+/* ==============================================
    TAB CONTENT WRAPPER
-   ######################################### */
-
+   ============================================== */
 .tab-content {
-  background: var(--cream);
-  /* Sets the background color of the tab content area using the --cream variable */
-  
+  background: var(--surface-dark);
 }
 
 .tab-pane {
   animation: tabFadeIn 0.4s var(--ease);
-  /* Applies the tabFadeIn animation over 0.4 seconds using the custom easing curve --ease */
   padding: 0 !important;
   margin: 0 !important;
 }
-}
 
 @keyframes tabFadeIn {
-  from { 
-    opacity: 0; 
-    /* Start fully transparent */
-    transform: translateY(12px); 
-    /* Start slightly below final position */
-  }
-  to { 
-    opacity: 1; 
-    /* End fully visible */
-    transform: translateY(0); 
-    /* End at original position */
-  }
-  /* Creates a smooth fade-in and upward slide effect for tab panes */
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* #########################################
+/* ==============================================
    HERO / HOME TAB
-   ######################################### */
-
+   Glass card floating over landscape background
+   ============================================== */
 .hero-banner {
   position: relative;
-  /* Position relative to contain absolute children like glows */
-
-  background: linear-gradient(135deg, var(--forest) 100%, var(--forest-mid) 50%, var(--forest) 100%);
-  /* Gradient background from forest to terra-dark */
-
+  background:
+    linear-gradient(180deg, rgba(15,26,20,0.3) 0%, rgba(15,26,20,0.7) 100%),
+    url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Albert_Bierstadt_-_Among_the_Sierra_Nevada%2C_California_-_Google_Art_Project.jpg/2560px-Albert_Bierstadt_-_Among_the_Sierra_Nevada%2C_California_-_Google_Art_Project.jpg');
+  background-size: cover;
+  background-position: center;
   min-height: calc(100vh - 64px);
-  /* Full viewport height minus navbar height */
-
   display: flex;
-  /* Use flexbox for centering content */
-
   align-items: center;
-  /* Vertically center content */
-
   justify-content: center;
-  /* Horizontally center content */
-
   overflow: hidden;
-  /* Hide anything that overflows hero boundaries */
 }
 
 .hero-bg-pattern {
   position: absolute;
-  /* Positioned over the hero-banner but behind content */
-
   inset: 0;
-  /* Stretch to fill the parent container */
-
 }
 
 .hero-glow {
   position: absolute;
-  /* Positioned behind hero content */
-
-  width: 1600px;
-  height: 1600px;
-  /* Size of glow */
-
   border-radius: 50%;
-  /* Make it a circle */
-
-  filter: blur(120px);
-  /* Blur for soft glow effect */
-
-  opacity: 0.15;
-  /* Low opacity for subtle effect */
-
+  filter: blur(100px);
   pointer-events: none;
-  /* Glow doesn't block clicks */
 }
 
 .hero-glow-1 {
-  background: var(--white);
-  /* Terra-colored glow */
-
-  top: -200px;
-  right: -100px;
-  /* Positioned top-right outside hero */
+  background: var(--terra-glow);
+  width: 600px; height: 600px;
+  top: -100px; right: -50px;
+  opacity: 0.5;
 }
 
 .hero-glow-2 {
-  background: var(--sage);
-  /* Sage-colored glow */
-
-  bottom: -200px;
-  left: -100px;
-  /* Positioned bottom-left outside hero */
+  background: var(--sage-glow);
+  width: 500px; height: 500px;
+  bottom: -100px; left: -50px;
+  opacity: 0.4;
 }
 
 .hero-glow-3 {
-  background: var(--amber);
-  /* Amber-colored glow */
-
-  top: 50%;
-  left: 50%;
-  /* Centered in hero */
-
+  background: var(--amber-glow);
+  width: 300px; height: 300px;
+  top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  /* Offset to perfectly center */
-
-  width: 400px;
-  height: 400px;
-  /* Smaller glow */
-
-  opacity: 0.08;
-  /* Very subtle */
+  opacity: 0.3;
 }
 
+/* Hero content sits inside a frosted glass card */
 .hero-inner {
   position: relative;
-  /* So z-index works for stacking */
-
   z-index: 2;
-  /* Bring content above glows and patterns */
-
   text-align: center;
-  /* Center text inside */
-
-  max-width: 800px;
-  /* Limit width for readability */
-
-  padding: 60px 32px;
-  /* Inner spacing */
+  max-width: 820px;
+  padding: 60px 48px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur-heavy));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-glass), var(--shadow-glow);
 }
 
 .hero-badge {
   display: inline-block;
-  /* Shrink to content width */
-
-  background: rgba(194, 113, 79, 0.2);
-  /* Semi-transparent background */
-
-  border: 1px solid rgba(194, 113, 79, 0.4);
-  /* Subtle border matching background */
-
+  background: rgba(232, 151, 107, 0.15);
+  border: 1px solid rgba(232, 151, 107, 0.35);
   color: var(--terra-light);
-  /* Text color */
-
-  font-size: 12px;
-  /* Small text */
-
+  font-size: 11px;
   font-weight: 700;
-  /* Bold */
-
   text-transform: uppercase;
-  /* Uppercase letters */
-
   letter-spacing: 2.5px;
-  /* Space between letters */
-
-  padding: 8px 22px;
-  /* Padding inside badge */
-
+  padding: 8px 24px;
   border-radius: 50px;
-  /* Rounded edges */
-
-  margin-bottom: 32px;
-  /* Space below badge */
-
+  margin-bottom: 28px;
   animation: fadeUp 0.8s var(--ease) 0.1s both;
-  /* Slide-up fade animation with delay */
 }
 
 .hero-title {
   font-family: 'DM Serif Display', Georgia, serif;
-  /* Serif font for hero title */
-
-  font-size: clamp(40px, 7vw, 80px);
-  /* Responsive font size between 40px and 80px */
-
+  font-size: clamp(38px, 6vw, 72px);
   font-weight: 400;
-  /* Normal weight */
-
-  color: var(--white);
-  /* White text */
-
+  color: var(--text-primary);
   line-height: 1.1;
-  /* Tight line spacing */
-
-  margin-bottom: 24px;
-  /* Space below title */
-
+  margin-bottom: 20px;
   animation: fadeUp 0.8s var(--ease) 0.25s both;
-  /* Slide-up fade animation with slight delay */
 }
 
 .hero-title span {
-  background: linear-gradient(135deg, var(--terra-light) 0%, var(--amber-light) 100%);
-  /* Gradient for highlighted text */
-
+  background: linear-gradient(135deg, var(--terra-light), var(--amber));
   -webkit-background-clip: text;
-  /* Clip background to text for webkit browsers */
-
   -webkit-text-fill-color: transparent;
-  /* Make text itself transparent so background shows */
-
   background-clip: text;
-  /* Standard property for gradient text */
 }
 
 .hero-subtitle {
-  font-size: clamp(16px, 2vw, 20px);
-  /* Responsive subtitle size */
-
-  color: rgba(245, 237, 224, 1);
-  /* Slightly transparent text */
-
-  max-width: 600px;
-  /* Limit width for readability */
-
-  margin: 0 auto 44px;
-  /* Center horizontally with bottom margin */
-
+  font-size: clamp(15px, 2vw, 18px);
+  color: var(--text-secondary);
+  max-width: 540px;
+  margin: 0 auto 36px;
   line-height: 1.7;
-  /* Taller line spacing for readability */
-
   animation: fadeUp 0.8s var(--ease) 0.4s both;
-  /* Fade-up animation with delay */
 }
 
 .hero-actions {
   display: flex;
-  /* Flex layout for buttons/links */
-
   gap: 16px;
-  /* Space between buttons */
-
   justify-content: center;
-  /* Center horizontally */
-
   flex-wrap: wrap;
-  /* Wrap on smaller screens */
-
   animation: fadeUp 0.8s var(--ease) 0.55s both;
-  /* Fade-up animation with delay */
 }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(24px); }
-  /* Start transparent and slightly below */
-
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
-  /* End fully visible at normal position */
 }
 
-/* Stats strip */
+/* Stats strip: individual glass boxes */
 .stats-strip {
   display: grid;
-  /* Use grid for equal-width stats */
-
-  grid-template-columns: 1fr;
-  max-width: 240px;
-  margin: 70px auto 0;
-  /* one columns */
-
-  gap: 2px;
-  /* Small gap between stats */
-
-  margin-top: 70px;
-  /* Space above stats */
-
-  background: rgba(255,255,255,0.05);
-  /* Slightly visible background */
-
-  border-radius: var(--radius-lg);
-  /* Rounded corners */
-
-  overflow: hidden;
-  /* Clip children if overflow */
-
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 48px;
   animation: fadeUp 0.8s var(--ease) 0.7s both;
-  /* Fade-up animation */
 }
 
 .stat-item {
-  padding: 28px 20px;
-  /* Padding inside each stat box */
-
+  padding: 24px 16px;
   text-align: center;
-  /* Center text */
-
-  backdrop-filter: blur(10px);
-  /* Glass effect blur */
-
-  background: rgba(255,255,255,0.03);
-  /* Slight translucent background */
-
-  transition: background 0.3s;
-  /* Smooth hover transition */
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-md);
+  transition: all 0.3s var(--ease);
 }
 
 .stat-item:hover {
-  background: rgba(255,255,255,0.06);
-  /* Slightly brighter background on hover */
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  transform: translateY(-2px);
 }
 
 .stat-value {
   font-family: 'DM Serif Display', Georgia, serif;
-  /* Serif font for number */
-
-  font-size: 42px;
-  /* Large number */
-
-  color: var(--amber-light);
-  /* Bright color for emphasis */
-
+  font-size: 36px;
+  color: var(--amber);
   line-height: 1;
-  /* Tight line spacing */
-
-  margin-bottom: 6px;
-  /* Space below number */
+  margin-bottom: 4px;
 }
 
 .stat-label {
-  font-size: 11px;
-  /* Small label */
-
+  font-size: 10px;
   text-transform: uppercase;
-  /* Uppercase letters */
-
   letter-spacing: 2px;
-  /* Space between letters */
-
-  color: rgba(245, 237, 224, 1);
-  /* Semi-transparent label text */
-
+  color: var(--text-muted);
   font-weight: 600;
-  /* Slightly bold */
 }
 
-/* #########################################
+/* ==============================================
    BUTTON STYLES
-  
-   This section styles custom buttons with different color themes:
-   - .btn-terra: bold terra gradient buttons
-   - .btn-sage: outlined sage buttons
-   - .btn-submit: full-width forest-themed submit buttons
-   Includes hover and active effects for interactivity.
-   ######################################### */
-
-
-/* ===== Terra Gradient Button (used for primary actions in hero) ===== */
-
+   Glass-styled buttons with glow effects
+   ============================================== */
 .btn-terra {
   background: linear-gradient(135deg, var(--terra) 0%, var(--terra-dark) 100%);
-  /* Primary gradient background */
-
-  color: var(--white) !important;
-  /* White text for contrast */
-
+  color: var(--text-primary) !important;
   border: none;
-  /* No border */
-
-  padding: 16px 36px;
-  /* Button spacing */
-
-  font-size: 15px;
+  padding: 15px 36px;
+  font-size: 14px;
   font-weight: 700;
   border-radius: 50px;
-  /* Pill-shaped button */
-
   cursor: pointer;
   transition: all 0.3s var(--ease);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 4px 15px rgba(194, 113, 79, 0.3);
-  /* Subtle shadow for depth */
+  box-shadow: 0 4px 20px var(--terra-glow);
 }
 
 .btn-terra:hover {
   transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 8px 25px rgba(194, 113, 79, 0.4);
-  /* Hover lift + stronger shadow */
+  box-shadow: 0 8px 30px var(--terra-glow);
 }
 
 .btn-terra:active {
   transform: translateY(0) scale(0.98);
-  /* Pressed effect */
 }
 
-
-/* ===== Sage Outline Button (used for secondary actions in hero) ===== */
-
 .btn-sage {
-  background: transparent;
+  background: var(--glass-bg);
   color: var(--sage-light) !important;
-  border: 2px solid var(--sage);
+  border: 1px solid var(--sage);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   padding: 14px 34px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   border-radius: 50px;
   cursor: pointer;
   transition: all 0.3s var(--ease);
-  /* Simple outlined button with hover effect */
 }
 
 .btn-sage:hover {
-  background: rgba(107, 143, 113, 0.15);
+  background: rgba(127, 168, 138, 0.15);
   border-color: var(--sage-light);
   transform: translateY(-2px);
-  /* Lift + subtle background on hover */
+  box-shadow: 0 4px 20px var(--sage-glow);
 }
 
-
-/* ===== Submit Button (used in forms, not hero) ===== */
-
-
 .btn-submit {
-  background: linear-gradient(135deg, var(--forest-mid) 0%, var(--forest) 100%);
-  color: var(--white) !important;
+  background: linear-gradient(135deg, var(--terra) 0%, var(--terra-dark) 100%);
+  color: var(--text-primary) !important;
   border: none;
   padding: 16px 40px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.3s var(--ease);
   width: 100%;
-  box-shadow: 0 4px 15px rgba(30, 51, 40, 0.25);
-  /* Full-width submit button for forms */
+  box-shadow: 0 4px 20px var(--terra-glow);
 }
 
 .btn-submit:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(30, 51, 40, 0.35);
-  /* Hover lift + stronger shadow */
+  box-shadow: 0 8px 30px var(--terra-glow);
 }
 
-
-/* ######################################### 
-
+/* ==============================================
    SECTION HEADERS
-   
-   Styles section headers with centered titles, subtitles, and a small accent line.
-   
-   ######################################### */
-
+   Light text on dark background with glowing accent
+   ============================================== */
 .section-header {
   text-align: center;
-  /* Center all content inside the header */
-
-  padding: 20px 24px 40px;
-  /* Vertical and horizontal spacing around the section header */
+  padding: 80px 24px 48px;
 }
 
 .section-header h2 {
   font-family: 'DM Serif Display', Georgia, serif;
-  /* Serif font for the main title */
-
-  font-size: clamp(32px, 5vw, 52px);
-  /* Responsive font size between 32px and 52px */
-
-  color: var(--forest);
-  /* Dark green title color */
-
+  font-size: clamp(30px, 5vw, 48px);
+  color: var(--text-primary);
   margin-bottom: 12px;
-  /* Space below the title */
-
   line-height: 1.15;
-  /* Tight line spacing for compact title */
 }
 
 .section-header p {
-  font-size: 17px;
-  /* Subtitle / description text size */
-
-  color: var(--charcoal-light);
-  /* Lighter text color for contrast */
-
-  max-width: 560px;
-  /* Limit width for readability */
-
+  font-size: 16px;
+  color: var(--text-secondary);
+  max-width: 520px;
   margin: 0 auto;
-  /* Center subtitle horizontally */
-
   line-height: 1.6;
-  /* Comfortable line spacing */
 }
 
 .section-header .accent-line {
-  width: 200px;
-  /* Width of the small line under the header */
-
-  height: 5px;
-  /* Thickness of the accent line */
-
-  background: linear-gradient(90deg, var(--terra), var(--terra));
-  /* Gradient color for visual emphasis */
-
+  width: 80px;
+  height: 3px;
+  background: var(--terra);
   border-radius: 2px;
-  /* Slightly rounded ends */
-
-  margin: 16px auto 0;
-  /* Center the line with spacing above */
+  margin: 20px auto 0;
+  box-shadow: 0 0 20px var(--terra-glow);
 }
 
-
-/* ######################################### 
+/* ==============================================
    PAINTING CARDS
-
-   Styles a responsive gallery of painting cards with hover effects, image zoom,
-   overlay gradient, badges, and textual info.
-   ######################################### */
-
+   Frosted glass cards with glowing borders on hover
+   ============================================== */
 .gallery-wrap {
-  padding: 0 24px 60px;
-  /* Space around the gallery */
-
+  padding: 0 24px 80px;
   max-width: 1400px;
-  /* Limit gallery width */
-
   margin: 0 auto;
-  /* Center gallery */
 }
 
 .paintings-grid {
   display: grid;
-  /* Grid layout for cards */
-
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  /* Responsive columns with minimum 380px width */
-
-  gap: 32px;
-  /* Space between cards */
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 28px;
 }
 
 .painting-card {
@@ -797,39 +541,37 @@ body {
   cursor: pointer;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  background: var(--white);
-  box-shadow: var(--shadow-md);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border-subtle);
+  box-shadow: var(--shadow-glass);
   transition: all 0.4s var(--ease);
   transform-style: preserve-3d;
-  /* Basic card container with rounded edges and shadow */
 }
 
 .painting-card:hover {
-  transform: translateY(-6px);
-  box-shadow: var(--shadow-lg);
-  /* Hover lift + stronger shadow */
+  transform: translateY(-8px);
+  border-color: var(--glass-border);
+  box-shadow: var(--shadow-glass), 0 0 30px rgba(232, 151, 107, 0.1);
 }
 
 .painting-card-img-wrap {
   position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 10;
-  /* Image container maintains ratio */
 }
 
 .painting-card-img-wrap::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(30,51,40,0.6) 0%, transparent 50%);
-  opacity: 0;
+  background: linear-gradient(to top, rgba(15,26,20,0.5) 0%, transparent 40%);
   transition: opacity 0.4s;
-  /* Overlay gradient for hover effect */
 }
 
 .painting-card:hover .painting-card-img-wrap::after {
   opacity: 1;
-  /* Show gradient on hover */
 }
 
 .painting-image {
@@ -838,58 +580,53 @@ body {
   object-fit: cover;
   display: block;
   transition: transform 0.6s var(--ease);
-  /* Image fills container and transitions on hover */
 }
 
 .painting-card:hover .painting-image {
-  transform: scale(1.06);
-  /* Slight zoom on hover */
+  transform: scale(1.05);
 }
 
 .painting-card-badge {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  background: rgba(30, 51, 40, 0.8);
-  backdrop-filter: blur(8px);
-  color: var(--amber-light);
-  font-size: 12px;
+  top: 14px;
+  right: 14px;
+  background: rgba(15, 26, 20, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border-subtle);
+  color: var(--amber);
+  font-size: 11px;
   font-weight: 700;
-  padding: 6px 14px;
+  padding: 5px 14px;
   border-radius: 20px;
   z-index: 2;
-  /* Small badge on top-right of card */
 }
 
 .painting-info {
   padding: 24px;
-  /* Space around text content */
 }
 
 .painting-title {
   font-family: 'DM Serif Display', Georgia, serif;
-  font-size: 22px;
-  color: var(--forest);
+  font-size: 20px;
+  color: var(--text-primary);
   margin-bottom: 6px;
   line-height: 1.3;
-  /* Painting title styling */
 }
 
 .painting-metadata {
-  color: var(--terra);
-  font-size: 13px;
+  color: var(--terra-light);
+  font-size: 12px;
   font-weight: 600;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  /* Metadata (like year/artist) styling */
 }
 
 .painting-context {
-  color: var(--charcoal-light);
-  font-size: 14px;
-  line-height: 1.65;
-  /* Description text styling */
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 .painting-card-cta {
@@ -898,28 +635,21 @@ body {
   gap: 6px;
   color: var(--terra);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-top: 14px;
   transition: gap 0.3s;
-  /* Call-to-action link styling */
 }
 
 .painting-card:hover .painting-card-cta {
   gap: 10px;
-  /* Slight animation on hover */
 }
 
-/* ######################################### 
-   MAP - SPLIT LAYOUT (UPDATED)
-   
-   UPDATED: Replaced single centered map with a two-column grid layout.
-   Map on the left with red circle markers for paintings and blue circles
-   for user submissions. Info panel on the right shows details when a
-   marker is clicked. Includes a color legend and responsive breakpoint.
-   ######################################### */
-
+/* ==============================================
+   MAP - SPLIT LAYOUT
+   Glass info panel, dark map container
+   ============================================== */
 .map-split-layout {
   display: grid;
   grid-template-columns: 3fr 1fr;
@@ -931,24 +661,27 @@ body {
 }
 
 .map-container {
-  border-radius: 24px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-glass-lg);
   height: 650px;
   width: 100%;
+  border: 1px solid var(--glass-border-subtle);
 }
 
 .leaflet-container {
   height: 100%;
-  border-radius: 24px;
+  border-radius: var(--radius-lg);
 }
 
-/* --- Map Info Panel (right side) --- */
+/* Map Info Panel - frosted glass */
 .map-info-panel {
-  background: var(--white);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur-heavy));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--sand-dark);
+  box-shadow: var(--shadow-glass);
+  border: 1px solid var(--glass-border);
   padding: 32px;
   height: 650px;
   overflow-y: auto;
@@ -963,19 +696,20 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  color: var(--charcoal-light);
+  color: var(--text-secondary);
 }
 
 .map-info-placeholder .placeholder-icon {
   font-size: 48px;
   margin-bottom: 16px;
-  opacity: 0.4;
+  opacity: 0.3;
 }
 
 .map-info-placeholder p {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.6;
   max-width: 280px;
+  color: var(--text-secondary);
 }
 
 .map-info-header {
@@ -984,7 +718,7 @@ body {
   gap: 10px;
   margin-bottom: 20px;
   padding-bottom: 16px;
-  border-bottom: 2px solid var(--sand-dark);
+  border-bottom: 1px solid var(--glass-border-subtle);
 }
 
 .map-info-dot {
@@ -994,27 +728,27 @@ body {
   flex-shrink: 0;
 }
 
-.map-info-dot.painting { background: var(--terra); }
-.map-info-dot.submission { background: #3B82F6; }
+.map-info-dot.painting { background: var(--terra); box-shadow: 0 0 8px var(--terra-glow); }
+.map-info-dot.submission { background: #60A5FA; box-shadow: 0 0 8px rgba(96,165,250,0.4); }
 
 .map-info-type-label {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: var(--charcoal-light);
+  color: var(--text-muted);
 }
 
 .map-info-title {
   font-family: 'DM Serif Display', Georgia, serif;
   font-size: 24px;
-  color: var(--forest);
+  color: var(--text-primary);
   margin-bottom: 8px;
   line-height: 1.3;
 }
 
 .map-info-meta {
-  color: var(--terra);
+  color: var(--terra-light);
   font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
@@ -1026,13 +760,13 @@ body {
   width: 100%;
   border-radius: var(--radius-sm);
   margin-bottom: 20px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-glass);
   max-height: 220px;
   object-fit: cover;
 }
 
 .map-info-context {
-  color: var(--charcoal-light);
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.7;
   margin-bottom: 20px;
@@ -1046,8 +780,8 @@ body {
 }
 
 .coord-box {
-  background: var(--cream);
-  border: 1px solid var(--sand-dark);
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border-subtle);
   border-radius: var(--radius-sm);
   padding: 12px 14px;
   text-align: center;
@@ -1058,17 +792,17 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: var(--charcoal-light);
+  color: var(--text-muted);
   margin-bottom: 4px;
 }
 
 .coord-value {
   font-family: 'DM Serif Display', Georgia, serif;
   font-size: 18px;
-  color: var(--forest);
+  color: var(--text-primary);
 }
 
-/* --- Map Legend --- */
+/* Map Legend */
 .map-legend {
   display: flex;
   gap: 24px;
@@ -1082,99 +816,77 @@ body {
   gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--charcoal-light);
+  color: var(--text-secondary);
 }
 
 .legend-dot {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 2px solid rgba(0,0,0,0.15);
+  border: 2px solid rgba(255,255,255,0.2);
 }
 
 .legend-dot.red { background: var(--terra); }
-.legend-dot.blue { background: #3B82F6; }
+.legend-dot.blue { background: #60A5FA; }
 
-/* --- Submission info extras --- */
+/* Submission info extras */
 .map-info-observations {
-  background: var(--cream);
-  border-left: 3px solid #3B82F6;
+  background: var(--glass-bg-light);
+  border-left: 3px solid #60A5FA;
   padding: 14px 16px;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   margin-bottom: 16px;
   font-size: 14px;
-  color: var(--charcoal);
+  color: var(--text-secondary);
   line-height: 1.6;
   font-style: italic;
 }
 
 .map-info-submitter {
   font-size: 13px;
-  color: var(--charcoal-light);
+  color: var(--text-muted);
   margin-bottom: 16px;
 }
 
-/* --- Responsive override for map layout --- */
+/* Responsive override for map layout */
 @media (max-width: 1024px) {
-  .map-split-layout {
-    grid-template-columns: 1fr;
-  }
-  .map-info-panel {
-    height: auto;
-    max-height: 500px;
-  }
+  .map-split-layout { grid-template-columns: 1fr; }
+  .map-info-panel { height: auto; max-height: 500px; }
 }
 
-
-/* ######################################### 
+/* ==============================================
    FORM
-   
-   Styles forms with a centered card layout, input fields, labels, and upload zones.
-   Includes hover/focus effects for better usability and visual feedback.
-   
-   ######################################### */
-
+   Glass card with translucent inputs
+   ============================================== */
 .form-wrap {
   padding: 0 24px 60px;
-  /* Space around the form */
-
   max-width: 660px;
-  /* Limit form width */
-
   margin: 0 auto;
-  /* Center form horizontally */
 }
 
 .form-card {
-  background: var(--white);
-  /* Card background */
-
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur-heavy));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
   padding: 48px;
-  /* Inner spacing */
-
   border-radius: var(--radius-lg);
-  /* Rounded edges */
-
-  box-shadow: var(--shadow-md);
-  /* Card shadow */
-
-  border: 1px solid var(--sand-dark);
-  /* Subtle border */
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass);
 }
 
 .form-card .form-group {
   margin-bottom: 24px;
-  /* Space between input groups */
 }
 
 .form-card label,
 .form-card .control-label {
   font-weight: 600;
-  color: var(--forest);
-  font-size: 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   margin-bottom: 8px;
   display: block;
-  /* Label styling */
 }
 
 .form-card .form-control,
@@ -1184,14 +896,13 @@ body {
 .form-card .shiny-input-container textarea {
   width: 100%;
   padding: 14px 16px;
-  border: 2px solid var(--sand-dark);
+  border: 1px solid var(--glass-border-subtle);
   border-radius: var(--radius-sm);
   font-size: 15px;
   font-family: 'DM Sans', sans-serif;
   transition: all 0.3s var(--ease);
-  background: var(--cream);
-  color: var(--charcoal);
-  /* Input field styling */
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
 }
 
 .form-card .form-control:focus,
@@ -1200,62 +911,45 @@ body {
 .form-card textarea:focus {
   outline: none;
   border-color: var(--sage);
-  box-shadow: 0 0 0 4px rgba(107, 143, 113, 0.15);
-  background: var(--white);
-  /* Focus effect for inputs */
+  box-shadow: 0 0 0 4px var(--sage-glow);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .upload-zone {
-  border: 3px dashed var(--sand-dark);
+  border: 3px dashed var(--glass-border-subtle);
   border-radius: var(--radius-md);
   padding: 40px 24px;
   text-align: center;
   transition: all 0.3s var(--ease);
-  background: var(--cream);
+  background: var(--glass-bg-light);
   cursor: pointer;
-  /* Drag-and-drop upload area styling */
+  color: var(--text-secondary);
 }
 
 .upload-zone:hover {
   border-color: var(--sage);
-  background: rgba(107, 143, 113, 0.04);
-  /* Hover effect for upload area */
+  background: rgba(127, 168, 138, 0.08);
 }
 
 .upload-icon {
   font-size: 36px;
   margin-bottom: 8px;
-  /* Icon inside upload zone */
 }
 
-/* #########################################
+/* ==============================================
    COMPARISONS
-   
-   Styles a responsive grid of comparison thumbnails with hover zoom, overlay,
-   and labels. Also styles a message when no comparisons are available.
-   
-   ######################################### */
-
+   Glass-bordered thumbnails
+   ============================================== */
 .comparison-wrap {
   padding: 0 24px 60px;
-  /* Space around the comparison section */
-
   max-width: 1400px;
-  /* Limit section width */
-
   margin: 0 auto;
-  /* Center section */
 }
 
 .comparison-grid {
   display: grid;
-  /* Grid layout for thumbnails */
-
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  /* Responsive columns with minimum width 320px */
-
   gap: 24px;
-  /* Space between thumbnails */
 }
 
 .comparison-thumb {
@@ -1264,15 +958,15 @@ body {
   border-radius: var(--radius-md);
   overflow: hidden;
   cursor: pointer;
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--glass-border-subtle);
+  box-shadow: var(--shadow-glass);
   transition: all 0.4s var(--ease);
-  /* Thumbnail container with rounded edges, shadow, and hover animation */
 }
 
 .comparison-thumb:hover {
   transform: translateY(-6px) scale(1.02);
-  box-shadow: var(--shadow-lg);
-  /* Hover lift and stronger shadow */
+  border-color: var(--glass-border);
+  box-shadow: var(--shadow-glass), 0 0 30px rgba(232,151,107,0.1);
 }
 
 .comparison-thumb img {
@@ -1280,726 +974,487 @@ body {
   height: 100%;
   object-fit: cover;
   transition: transform 0.5s var(--ease);
-  /* Image fills container and transitions on hover */
 }
 
 .comparison-thumb:hover img {
-  transform: scale(1.08);
-  /* Slight zoom effect on hover */
+  transform: scale(1.06);
 }
 
 .comparison-thumb-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(30,51,40,0.7) 0%, transparent 60%);
+  background: linear-gradient(to top, rgba(15,26,20,0.8) 0%, transparent 50%);
   display: flex;
   align-items: flex-end;
   padding: 20px;
   opacity: 0;
   transition: opacity 0.3s;
-  /* Overlay with gradient and bottom-aligned content, hidden by default */
 }
 
 .comparison-thumb:hover .comparison-thumb-overlay {
   opacity: 1;
-  /* Show overlay on hover */
 }
 
 .comparison-thumb-label {
-  color: var(--white);
+  color: var(--text-primary);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   display: flex;
   align-items: center;
   gap: 6px;
-  /* Label text on overlay */
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border-subtle);
 }
 
 .no-comparisons {
   text-align: center;
   padding: 80px 24px;
-  color: var(--charcoal-light);
+  color: var(--text-secondary);
   font-size: 18px;
-  /* Message when no comparisons exist */
 }
 
- 
- /* #########################################
+/* ==============================================
    LIGHTBOX (Paintings)
-   
-   This CSS creates a full-screen lightbox overlay for displaying paintings.
-   It includes a fade-in dark overlay, centered animated image, interactive
-   close button, and contextual metadata panel that animates into view.
-   Only necessary lines are explained below.
-
-   ######################################### */
-
+   Dark overlay with glass info panel
+   ============================================== */
 #lightbox {
-  display: none; 
-  /* Keeps the lightbox hidden until activated */
-
-  position: fixed; 
-  /* Locks the lightbox to the viewport so it stays in place while scrolling */
-
-  inset: 0; 
-  /* Shorthand for top/right/bottom/left: 0 -- makes it cover the full screen */
-
-  background: rgba(10, 15, 12, 0.97); 
-  /* Creates a nearly opaque dark overlay behind the image */
-
-  z-index: 10000; 
-  /* Ensures the lightbox appears above all other page elements */
-
-  opacity: 0; 
-  /* Starts transparent so it can fade in smoothly */
-
-  transition: opacity 0.4s; 
-  /* Animates fade-in and fade-out effect */
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 10, 0.97);
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.4s;
 }
 
 #lightbox.active {
-  display: flex; 
-  /* Makes the container visible and enables flex layout */
-
-  opacity: 1; 
-  /* Fades the overlay into view */
+  display: flex;
+  opacity: 1;
 }
 
 .lightbox-content {
-  height: 100%; 
-  /* Allows vertical centering within the full viewport */
-
+  height: 100%;
   display: flex;
-
-  align-items: center; 
-  /* Vertically centers the image */
-
-  justify-content: center; 
-  /* Horizontally centers the image */
-
-  position: relative; 
-  /* Allows absolutely positioned children (close button, info panel) */
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
 
 .lightbox-image-container {
-  max-width: 90%; 
-  /* Prevents the image from exceeding viewport width */
-
-  max-height: 80%; 
-  /* Prevents the image from exceeding viewport height */
-
-  overflow: hidden; 
-  /* Hides image edges during scaling animation */
-
-  border-radius: var(--radius-md); 
-  /* Applies consistent rounded corners */
-
-  box-shadow: 0 30px 80px rgba(0,0,0,0.5); 
-  /* Adds depth so the image feels elevated */
+  max-width: 90%;
+  max-height: 80%;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+  border: 1px solid var(--glass-border-subtle);
 }
 
 .lightbox-image {
   max-width: 100%;
-  max-height: 100%; 
-  /* Ensures the image scales responsively inside its container */
-
-  animation: kenBurns 20s ease-in-out infinite alternate; 
-  /* Applies a slow cinematic zoom and pan animation */
+  max-height: 100%;
+  animation: kenBurns 20s ease-in-out infinite alternate;
 }
 
 @keyframes kenBurns {
-  100% { 
-    transform: scale(1.08) translate(-1.5%, -1.5%); 
-    /* Gradually zooms and slightly shifts the image for subtle motion */
-  }
+  100% { transform: scale(1.08) translate(-1.5%, -1.5%); }
 }
 
 .lightbox-close {
-  position: absolute; 
-  /* Positions close button relative to the lightbox content */
-
+  position: absolute;
   top: 24px;
-  right: 24px; 
-  /* Places close button in the top-right corner */
-
-  border-radius: 50%; 
-  /* Makes the button circular */
-
-  cursor: pointer; 
-  /* Shows pointer cursor to indicate interactivity */
-
-  transition: all 0.3s; 
-  /* Smooth hover animation */
-
-  z-index: 10; 
-  /* Keeps button above image and info panel */
+  right: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s;
+  z-index: 10;
+  color: var(--text-primary);
+  font-size: 28px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border-subtle);
 }
 
 .lightbox-close:hover {
-  transform: rotate(90deg) scale(1.1); 
-  /* Rotates and slightly enlarges button for interactive feedback */
+  transform: rotate(90deg) scale(1.1);
+  background: var(--glass-bg-strong);
 }
 
 .lightbox-info {
-  position: absolute; 
-  /* Anchors metadata panel within lightbox */
-
+  position: absolute;
   bottom: 32px;
   left: 32px;
-  right: 32px; 
-  /* Positions info panel near bottom with side margins */
-
-  backdrop-filter: blur(20px); 
-  /* Adds glass-like blur effect behind the panel */
-
-  opacity: 0; 
-  /* Starts hidden for animation */
-
-  transform: translateY(16px); 
-  /* Slightly shifts downward before animating upward */
-
-  transition: all 0.5s var(--ease) 0.2s; 
-  /* Smooth delayed entrance animation */
+  right: 32px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur-heavy));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: all 0.5s var(--ease) 0.2s;
+  color: var(--text-primary);
 }
 
 #lightbox.active .lightbox-info {
-  opacity: 1; 
-  /* Fades metadata panel into view */
-
-  transform: translateY(0); 
-  /* Slides panel upward into final position */
+  opacity: 1;
+  transform: translateY(0);
 }
 
-/* #########################################
+.lightbox-info h3 {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 22px;
+  margin-bottom: 4px;
+}
+
+.lightbox-info .meta {
+  color: var(--terra-light);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.lightbox-info .context {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ==============================================
    COMPARISON LIGHTBOX (Side-by-side)
-   SUMMARY:
-   This CSS creates a full-screen comparison lightbox for displaying two
-   paintings side-by-side. It uses CSS Grid for equal split layout,
-   rounded containers for a polished look, and styled overlay labels
-   with a subtle glassmorphism effect for context.
-
-   ######################################### */
-   
+   Glass labels over dark split view
+   ============================================== */
 #comparison-lightbox {
-  display: none; 
-  /* Keeps comparison lightbox hidden until activated */
-
-  position: fixed; 
-  /* Locks it to the viewport */
-
-  inset: 0; 
-  /* Covers the entire screen */
-
-  background: rgba(10, 15, 12, 0.97); 
-  /* Dark cinematic overlay */
-
-  z-index: 10001; 
-  /* Ensures it appears above the standard lightbox */
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 10, 0.97);
+  z-index: 10001;
 }
 
 #comparison-lightbox.active {
-  display: flex; 
-  /* Makes the lightbox visible when active */
+  display: flex;
 }
 
 .comparison-container {
   width: 100%;
-  height: 100%; 
-  /* Allows full viewport usage */
-
-  display: grid; 
-  /* Enables side-by-side layout */
-
-  grid-template-columns: 1fr 1fr; 
-  /* Creates two equal-width columns */
-
-  gap: 4px; 
-  /* Small divider between images */
-
-  padding: 70px 32px; 
-  /* Prevents content from touching screen edges */
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 70px 32px;
 }
 
 .comparison-side {
-  position: relative; 
-  /* Allows labels to be positioned inside */
-
-  overflow: hidden; 
-  /* Prevents zoomed images from spilling out */
-
-  background: #000; 
-  /* Neutral background behind images */
-
-  border-radius: var(--radius-sm); 
-  /* Gives both image panels rounded corners */
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border-subtle);
 }
 
 .comparison-side img {
   width: 100%;
-  height: 100%; 
-  /* Forces image to fill its side container */
-
-  object-fit: contain; 
-  /* Ensures full image is visible without cropping */
-
-  transition: transform 0.1s ease; 
-  /* Smooth micro-interactions (zoom/pan effects if applied) */
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.1s ease;
 }
 
 .comparison-label {
-  position: absolute; 
-  /* Anchors label inside image container */
-
+  position: absolute;
   top: 16px;
-  left: 16px; 
-  /* Places label in upper-left corner */
-
-  background: rgba(30, 51, 40, 0.8); 
-  /* Semi-transparent dark overlay */
-
-  backdrop-filter: blur(8px); 
-  /* Creates glass-like blur effect */
-
-  padding: 8px 18px; 
-  /* Adds breathing room inside label */
-
-  border-radius: 20px; 
-  /* Creates pill-shaped label */
-
+  left: 16px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 8px 18px;
+  border-radius: 20px;
   font-size: 13px;
-  font-weight: 700; 
-  /* Makes label text bold and readable */
-
-  color: var(--amber-light); 
-  /* Accent color for visual hierarchy */
-
-  border: 1px solid rgba(107, 143, 113, 0.2); 
-  /* Subtle outline for depth */
+  font-weight: 700;
+  color: var(--amber);
+  border: 1px solid var(--glass-border-subtle);
 }
 
-/* #########################################
+/* ==============================================
    ADMIN
-   
-   This CSS styles the Admin interface, including the login card,
-   admin action toolbar, and DataTable overrides. It creates a clean,
-   centered layout with strong typography, rounded cards, elevated
-   shadows, and clearly differentiated action buttons (approve, reject,
-   refresh) with interactive hover feedback.
-
-   ######################################### */
-
+   Glass login card and admin controls
+   ============================================== */
 .admin-wrap {
   max-width: 1200px;
-  /* Prevents admin content from stretching too wide on large screens */
-
   margin: 0 auto;
-  /* Centers the admin layout horizontally */
-
   padding: 0 24px 60px;
-  /* Adds side spacing and bottom breathing room */
 }
 
 .admin-login-card {
   max-width: 400px;
-  /* Keeps login form compact and focused */
-
   margin: 0 auto;
-  /* Centers login card */
-
-  background: var(--white);
-  /* Clean card background */
-
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur-heavy));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
   padding: 48px;
-  /* Generous spacing for premium feel */
-
   border-radius: var(--radius-lg);
-  /* Large rounded corners for modern UI */
-
-  box-shadow: var(--shadow-md);
-  /* Elevates card from background */
-
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass);
   text-align: center;
-  /* Centers login text and inputs */
 }
 
 .admin-login-card h3 {
   font-family: 'DM Serif Display', Georgia, serif;
-  /* Elegant headline typography */
-
-  color: var(--forest);
-  /* Strong brand heading color */
-
+  color: var(--text-primary);
   font-size: 28px;
 }
 
 .admin-login-card p {
-  color: var(--charcoal-light);
-  /* Softer secondary text */
-
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .admin-login-card .form-control {
   padding: 14px 16px;
-  /* Comfortable click/tap target size */
-
-  border: 2px solid var(--sand-dark);
-  /* Subtle input boundary */
-
+  border: 1px solid var(--glass-border-subtle);
   border-radius: var(--radius-sm);
-  /* Consistent rounded inputs */
-
   width: 100%;
-  /* Full-width inside card */
-
   transition: all 0.3s;
-  /* Smooth focus animation */
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
 }
 
 .admin-login-card .form-control:focus {
   border-color: var(--sage);
-  /* Highlights active input */
-
-  box-shadow: 0 0 0 4px rgba(107,143,113,0.15);
-  /* Accessible focus ring */
-
+  box-shadow: 0 0 0 4px var(--sage-glow);
   outline: none;
-  /* Removes default browser outline */
+  background: rgba(255, 255, 255, 0.1);
 }
 
-
-/* =========================
-   ADMIN TOOLBAR
-   ========================= */
-
+/* Admin Toolbar */
 .admin-toolbar {
   display: flex;
-  /* Horizontal button layout */
-
   gap: 12px;
-  /* Even spacing between buttons */
-
   flex-wrap: wrap;
-  /* Prevents overflow on small screens */
+  margin-bottom: 24px;
 }
 
 .admin-toolbar .btn {
   border-radius: var(--radius-sm);
-  /* Rounded action buttons */
-
   font-weight: 700;
-  /* Strong action emphasis */
-
   text-transform: uppercase;
-  /* Creates administrative tone */
-
   letter-spacing: 0.5px;
-  /* Improves readability of uppercase text */
-
   cursor: pointer;
-  /* Indicates clickability */
-
   transition: all 0.3s;
-  /* Smooth hover effects */
-
-  border: 2px solid;
-  /* Gives structure to transparent buttons */
+  border: 1px solid;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .admin-toolbar .btn-approve {
-  background: var(--sage);
-  /* Positive action color */
-
+  background: rgba(127, 168, 138, 0.2);
   border-color: var(--sage);
-
-  color: white;
+  color: var(--sage-light);
 }
 
 .admin-toolbar .btn-approve:hover {
-  background: var(--sage-dark);
-  /* Darkens to reinforce interaction */
+  background: rgba(127, 168, 138, 0.35);
 }
 
 .admin-toolbar .btn-reject {
-  background: transparent;
-  /* Neutral base */
-
+  background: rgba(232, 151, 107, 0.1);
   border-color: var(--terra);
-  /* Warning/destructive tone */
-
-  color: var(--terra);
+  color: var(--terra-light);
 }
 
 .admin-toolbar .btn-reject:hover {
-  background: rgba(194,113,79,0.1);
-  /* Light tint feedback on hover */
+  background: rgba(232, 151, 107, 0.2);
 }
 
 .admin-toolbar .btn-refresh {
-  background: transparent;
-
-  border-color: var(--charcoal-light);
-
-  color: var(--charcoal-light);
-  /* Neutral utility action */
+  background: var(--glass-bg-light);
+  border-color: var(--glass-border);
+  color: var(--text-secondary);
 }
 
 .admin-toolbar .btn-refresh:hover {
-  background: rgba(0,0,0,0.04);
-  /* Subtle hover feedback */
+  background: var(--glass-bg);
 }
 
-
-/* =========================
-   DataTable Overrides
-   ========================= */
-
+/* DataTable Overrides - glass-styled table */
 .dataTables_wrapper {
-  background: var(--white);
-  /* Makes table area card-like */
-
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border-subtle);
   border-radius: var(--radius-md);
-  /* Rounded table container */
-
   padding: 24px;
-  /* Inner spacing */
-
-  box-shadow: var(--shadow-sm);
-  /* Slight elevation */
+  box-shadow: var(--shadow-glass);
+  color: var(--text-primary);
 }
 
 table.dataTable thead th {
   font-weight: 700;
-  /* Strong header hierarchy */
-
   text-transform: uppercase;
-  /* Administrative styling */
-
   letter-spacing: 1px;
-  /* Improves legibility */
-
-  color: var(--forest);
-  /* Brand-aligned header color */
-
-  border-bottom: 2px solid var(--sand-dark) !important;
-  /* Strong visual divider under headers */
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--glass-border-subtle) !important;
 }
 
-/* #########################################
-   ALERTS
-   
-   This CSS defines custom success and error alert components.
-   Each alert uses soft tinted backgrounds, colored borders for clear
-   status indication, rounded corners for consistency with the design
-   system, and bold typography to ensure visibility and readability.
-   
-   ######################################### */
+table.dataTable tbody td {
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--glass-border-subtle) !important;
+}
 
-.alert-success-custom {
-  background: rgba(107, 143, 113, 0.1);
-  /* Light sage tint to indicate positive/success state */
+table.dataTable tbody tr:hover {
+  background: var(--glass-bg-light) !important;
+}
 
-  border: 1px solid var(--sage);
-  /* Stronger sage border for visual definition */
+table.dataTable tbody tr.selected {
+  background: rgba(232, 151, 107, 0.15) !important;
+}
 
-  color: var(--sage-dark);
-  /* Darker green text for readable contrast */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+  color: var(--text-muted) !important;
+}
 
-  padding: 16px 20px;
-  /* Comfortable internal spacing */
-
+.dataTables_wrapper .dataTables_filter input {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--glass-border-subtle);
+  color: var(--text-primary);
   border-radius: var(--radius-sm);
-  /* Rounded corners for design consistency */
+  padding: 6px 12px;
+}
 
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--glass-border-subtle) !important;
+  background: var(--glass-bg-light) !important;
+  border-radius: 6px !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background: var(--glass-bg-strong) !important;
+  border-color: var(--terra) !important;
+  color: var(--terra-light) !important;
+}
+
+/* ==============================================
+   ALERTS
+   Glass-styled success and error alerts
+   ============================================== */
+.alert-success-custom {
+  background: rgba(127, 168, 138, 0.15);
+  border: 1px solid var(--sage);
+  color: var(--sage-light);
+  padding: 16px 20px;
+  border-radius: var(--radius-sm);
   margin-bottom: 24px;
-  /* Spacing below alert */
-
   font-weight: 600;
-  /* Slight emphasis for important message */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .alert-error-custom {
-  background: rgba(194, 113, 79, 0.1);
-  /* Light terra tint to indicate warning/error */
-
+  background: rgba(232, 151, 107, 0.15);
   border: 1px solid var(--terra);
-  /* Strong terra border for clarity */
-
-  color: var(--terra-dark);
-  /* Darker red tone for readable contrast */
-
+  color: var(--terra-light);
   padding: 16px 20px;
-  /* Consistent internal spacing */
-
   border-radius: var(--radius-sm);
-  /* Rounded corners for cohesive UI */
-
   margin-bottom: 24px;
-  /* Spacing below alert */
-
   font-weight: 600;
-  /* Emphasizes message importance */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
-
-
-/* #########################################
+/* ==============================================
    RESPONSIVE
-   
-   Makes media mobile friendly
-   ######################################### */
-   
+   ============================================== */
 @media (max-width: 768px) {
   .paintings-grid { grid-template-columns: 1fr; }
-  /* Changes the paintings grid to a single column instead of multiple columns */
-
   .comparison-grid { grid-template-columns: 1fr; }
-  /* Makes side-by-side comparison images stack vertically */
-
-  .stats-strip { grid-template-columns: 1fr; }
-  /* Stacks any stats or metrics strip vertically for mobile */
-
+  .stats-strip { grid-template-columns: 1fr; gap: 8px; }
   .comparison-container { grid-template-columns: 1fr; }
-  /* Stacks the comparison lightbox images vertically instead of side-by-side */
-
   .form-card { padding: 32px 24px; }
-  /* Reduces padding on forms for smaller screens */
-
-  .hero-inner { padding: 40px 20px; }
-  /* Adjusts padding inside hero sections to fit mobile screens */
-
+  .hero-inner { padding: 40px 24px; margin: 0 16px; }
   .lightbox-content { padding: 20px; }
-  /* Reduces lightbox content padding to maximize image space on mobile */
-
   .lightbox-info { left: 16px; right: 16px; bottom: 16px; padding: 20px; }
-  /* Moves the lightbox info panel closer to edges and reduces padding for small screens */
-
   .section-header { padding: 40px 20px 30px; }
-  /* Adjusts section header spacing for mobile screens */
 }
 
-/* #########################################
+/* ==============================================
    SHINY SPECIFIC OVERRIDES
-   ######################################### */
-
-
-.shiny-input-container { 
-  width: 100% !important; 
-  /* Forces all Shiny inputs to fill the full width of their container, overriding Shiny defaults */
+   ============================================== */
+.shiny-input-container {
+  width: 100% !important;
 }
 
-.selectize-input { 
-  border: 2px solid var(--sand-dark) !important; 
-  /* Gives dropdown inputs a consistent border matching your design */
-  
-  border-radius: var(--radius-sm) !important; 
-  /* Adds rounded corners to dropdowns */
-  
-  padding: 10px 14px !important; 
-  /* Adds comfortable spacing inside the input */
+.selectize-input {
+  border: 1px solid var(--glass-border-subtle) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 10px 14px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text-primary) !important;
 }
 
-.selectize-input.focus { 
-  border-color: var(--sage) !important; 
-  /* Changes border to the sage color when the input is focused */
-  
-  box-shadow: 0 0 0 4px rgba(107,143,113,0.15) !important; 
-  /* Adds a subtle focus ring to indicate active state */
+.selectize-input.focus {
+  border-color: var(--sage) !important;
+  box-shadow: 0 0 0 4px var(--sage-glow) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* #########################################
-   DARK MODE
-   Overrides root variables when body has .dark-mode class.
-   ######################################### */
-
-body.dark-mode {
-  --cream: #1a1f2e;
-  --sand: #2a2f3e;
-  --sand-dark: #353a4a;
-  --white: #242938;
-  --charcoal: #e8e0d4;
-  --charcoal-light: #b8b0a4;
-  --forest: #c8dcc8;
-  --forest-mid: #2a4a38;
+.selectize-dropdown {
+  background: var(--surface-dark-mid) !important;
+  border: 1px solid var(--glass-border-subtle) !important;
+  border-radius: var(--radius-sm) !important;
 }
 
-/* Navbar stays dark in both modes */
-body.dark-mode .navbar {
-  background: #111620 !important;
-  border-bottom-color: rgba(255,255,255,0.1) !important;
+.selectize-dropdown .option {
+  color: var(--text-secondary) !important;
 }
 
-/* Hero stays dark in both modes */
-body.dark-mode .hero-banner {
-  background: linear-gradient(135deg, #111620 100%, #1a2030 50%, #111620 100%);
+.selectize-dropdown .option.active {
+  background: var(--glass-bg) !important;
+  color: var(--text-primary) !important;
 }
 
-/* Cards and panels need darker backgrounds */
-body.dark-mode .painting-card,
-body.dark-mode .form-card,
-body.dark-mode .admin-login-card,
-body.dark-mode .map-info-panel,
-body.dark-mode .dataTables_wrapper {
-  background: #242938;
-  border-color: #353a4a;
+.selectize-input .item {
+  color: var(--text-primary) !important;
 }
 
-/* Section header titles */
-body.dark-mode .section-header h2 {
-  color: #c8dcc8;
+/* Override Bootstrap nav-pills for dark theme */
+.nav-pills .nav-link {
+  color: var(--text-secondary) !important;
 }
 
-/* Painting card text */
-body.dark-mode .painting-title {
-  color: #c8dcc8;
+.nav-pills .nav-link.active {
+  background: var(--glass-bg) !important;
+  color: var(--text-primary) !important;
 }
 
-body.dark-mode .painting-context,
-body.dark-mode .map-info-context {
-  color: #b8b0a4;
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
 }
-
-/* Form inputs */
-body.dark-mode .form-card .form-control,
-body.dark-mode .form-card input,
-body.dark-mode .form-card select,
-body.dark-mode .form-card textarea,
-body.dark-mode .upload-zone,
-body.dark-mode .selectize-input {
-  background: #1a1f2e !important;
-  border-color: #353a4a !important;
-  color: #e8e0d4 !important;
+::-webkit-scrollbar-track {
+  background: var(--surface-dark);
 }
-
-/* DataTable overrides */
-body.dark-mode table.dataTable thead th {
-  color: #c8dcc8;
-  border-bottom-color: #353a4a !important;
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 4px;
 }
-
-body.dark-mode table.dataTable tbody td {
-  color: #b8b0a4;
-}
-
-/* Coord boxes on map panel */
-body.dark-mode .coord-box {
-  background: #1a1f2e;
-  border-color: #353a4a;
-}
-
-body.dark-mode .coord-value {
-  color: #c8dcc8;
-}
-
-/* Comparison no-results text */
-body.dark-mode .no-comparisons {
-  color: #b8b0a4;
-}
-
-/* Toggle button appearance in dark mode */
-body.dark-mode #theme-toggle {
-  border-color: rgba(200,220,200,0.3);
-  color: #c8dcc8;
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.25);
 }
 "
 
@@ -2022,16 +1477,17 @@ ui <- page_navbar(
   
   theme = bs_theme(
     # bs_theme() customizes the visual appearance using Bootstrap 5.
+    # GLASSMORPHISM THEME: Dark background with luminous accents.
     
     version = 5,
     # Use Bootstrap version 5.
     
-    bg = "#FBF8F3",  # Background color (cream/off-white)
-    fg = "#2D2D2D",  # Foreground/text color (dark charcoal)
-    primary = "#C2714F",   # Primary accent color (terra/orange-brown)
-    secondary = "#6B8F71", # Secondary accent color (sage green)
-    success = "#6B8F71",   # Color used for "success" alerts (sage green)
-    info = "#D4A843",      # Color used for "info" alerts (amber/gold)
+    bg = "#0f1a14",    # Dark forest background (was cream)
+    fg = "#FFFFFF",    # White foreground text (was charcoal)
+    primary = "#E8976B",   # Luminous terra accent (was #C2714F)
+    secondary = "#7FA88A", # Luminous sage accent (was #6B8F71)
+    success = "#7FA88A",   # Sage green for success alerts
+    info = "#E2B94C",      # Bright amber for info alerts
     
     base_font = font_google("DM Sans"),
     # Loads the "DM Sans" font from Google Fonts for body text.
@@ -2044,7 +1500,7 @@ ui <- page_navbar(
     # tags$head() injects content into the HTML <head> tag.
     # This is where you load external resources and styles.
     
-    tags$link(href = "https://fonts.googleapis.com/...", rel = "stylesheet"),
+    tags$link(href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap", rel = "stylesheet"),
     # Loads the Google Fonts stylesheet so DM Sans and DM Serif Display
     # are available in the browser.
     
@@ -2105,9 +1561,21 @@ ui <- page_navbar(
                                         tags$div(class = "stat-value", as.character(nrow(paintings_data))),
                                         
                                         tags$div(class = "stat-label", "Locations")
-                               )
-                           
+                               ),
                                
+                               tags$div(class = "stat-item",
+                                        tags$div(class = "stat-value", textOutput("stat_submissions", inline = TRUE)),
+                                        # textOutput() displays a reactive value from the server.
+                                        # "stat_submissions" is updated live whenever a new submission is added.
+                                        # inline = TRUE means it renders as inline text, not a block.
+                                        tags$div(class = "stat-label", "Submissions")
+                               ),
+                               
+                               tags$div(class = "stat-item",
+                                        tags$div(class = "stat-value", textOutput("stat_approved", inline = TRUE)),
+                                        # Same as above but for approved comparisons.
+                                        tags$div(class = "stat-label", "Comparisons")
+                               )
                       )
              )
     )
@@ -2293,14 +1761,6 @@ ui <- page_navbar(
   
   # -- SPACER --------------------------------------------------------------
   nav_spacer(),
-  nav_item(
-    tags$button(
-      id = "theme-toggle",
-      onclick = "toggleDarkMode()",
-      style = "background: none; border: 2px solid rgba(245,237,224,0.3); border-radius: 50px; color: var(--sand); padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 600; letter-spacing: 0.5px; transition: all 0.3s;",
-      HTML("&#9790; Dark Mode")
-    )
-  ),
   # Pushes everything after it (the Login tab) to the far right of the navbar.
   
   
@@ -2527,17 +1987,6 @@ ui <- page_navbar(
           }, 250);
         }
       });
-      
-      // -- DARK MODE TOGGLE ------------------------------------------
-window.toggleDarkMode = function() {
-  document.body.classList.toggle('dark-mode');
-  var btn = document.getElementById('theme-toggle');
-  if (document.body.classList.contains('dark-mode')) {
-    btn.innerHTML = '&#9788; Light Mode';
-  } else {
-    btn.innerHTML = '&#9790; Dark Mode';
-  }
-};
     ")))
   )
 )
