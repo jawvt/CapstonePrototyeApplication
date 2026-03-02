@@ -376,10 +376,10 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Stats strip: individual glass boxes */
+/* Stats strip: single centered glass box (paintings only) */
 .stats-strip {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  justify-content: center;
   gap: 12px;
   margin-top: 48px;
   animation: fadeUp 0.8s var(--ease) 0.7s both;
@@ -629,6 +629,14 @@ body {
   line-height: 1.7;
 }
 
+.painting-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  gap: 10px;
+}
+
 .painting-card-cta {
   display: inline-flex;
   align-items: center;
@@ -638,8 +646,9 @@ body {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  margin-top: 14px;
   transition: gap 0.3s;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .painting-card:hover .painting-card-cta {
@@ -1018,51 +1027,9 @@ body {
 }
 
 /* ==============================================
-   LIGHTBOX (Paintings)
-   Dark overlay with glass info panel
+   LIGHTBOX CLOSE BUTTON
+   Used by the comparison lightbox
    ============================================== */
-#lightbox {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(8, 12, 10, 0.97);
-  z-index: 10000;
-  opacity: 0;
-  transition: opacity 0.4s;
-}
-
-#lightbox.active {
-  display: flex;
-  opacity: 1;
-}
-
-.lightbox-content {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.lightbox-image-container {
-  max-width: 90%;
-  max-height: 80%;
-  overflow: hidden;
-  border-radius: var(--radius-md);
-  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
-  border: 1px solid var(--glass-border-subtle);
-}
-
-.lightbox-image {
-  max-width: 100%;
-  max-height: 100%;
-  animation: kenBurns 20s ease-in-out infinite alternate;
-}
-
-@keyframes kenBurns {
-  100% { transform: scale(1.08) translate(-1.5%, -1.5%); }
-}
-
 .lightbox-close {
   position: absolute;
   top: 24px;
@@ -1087,49 +1054,6 @@ body {
 .lightbox-close:hover {
   transform: rotate(90deg) scale(1.1);
   background: var(--glass-bg-strong);
-}
-
-.lightbox-info {
-  position: absolute;
-  bottom: 32px;
-  left: 32px;
-  right: 32px;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--glass-blur-heavy));
-  -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  padding: 28px 32px;
-  opacity: 0;
-  transform: translateY(16px);
-  transition: all 0.5s var(--ease) 0.2s;
-  color: var(--text-primary);
-}
-
-#lightbox.active .lightbox-info {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.lightbox-info h3 {
-  font-family: 'DM Serif Display', Georgia, serif;
-  font-size: 22px;
-  margin-bottom: 4px;
-}
-
-.lightbox-info .meta {
-  color: var(--terra-light);
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-}
-
-.lightbox-info .context {
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.6;
 }
 
 /* ==============================================
@@ -1383,12 +1307,10 @@ table.dataTable tbody tr.selected {
 @media (max-width: 768px) {
   .paintings-grid { grid-template-columns: 1fr; }
   .comparison-grid { grid-template-columns: 1fr; }
-  .stats-strip { grid-template-columns: 1fr; gap: 8px; }
+  .stats-strip { gap: 8px; }
   .comparison-container { grid-template-columns: 1fr; }
   .form-card { padding: 32px 24px; }
   .hero-inner { padding: 40px 24px; margin: 0 16px; }
-  .lightbox-content { padding: 20px; }
-  .lightbox-info { left: 16px; right: 16px; bottom: 16px; padding: 20px; }
   .section-header { padding: 40px 20px 30px; }
 }
 
@@ -1455,6 +1377,151 @@ table.dataTable tbody tr.selected {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255,255,255,0.25);
+}
+
+/* ==============================================
+   LIGHT/DARK MODE TOGGLE BUTTON
+   ============================================== */
+.theme-toggle {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border-subtle);
+  color: var(--text-secondary);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s var(--ease);
+  font-size: 18px;
+  margin: 12px 16px 12px 0;
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  background: var(--glass-bg-strong);
+  border-color: var(--glass-border);
+  color: var(--amber);
+  transform: scale(1.1);
+}
+
+/* ==============================================
+   LIGHT MODE OVERRIDES
+   ============================================== */
+body.light-mode {
+  --glass-bg: rgba(0, 0, 0, 0.04);
+  --glass-bg-strong: rgba(0, 0, 0, 0.07);
+  --glass-bg-light: rgba(0, 0, 0, 0.02);
+  --glass-border: rgba(0, 0, 0, 0.12);
+  --glass-border-subtle: rgba(0, 0, 0, 0.06);
+  --surface-dark: #F5F0EB;
+  --surface-dark-mid: #EDE7E0;
+  --surface-card: rgba(0, 0, 0, 0.04);
+  --text-primary: #2D2D2D;
+  --text-secondary: rgba(45, 45, 45, 0.7);
+  --text-muted: rgba(45, 45, 45, 0.45);
+  --terra: #C2714F;
+  --terra-dark: #A85D3F;
+  --terra-light: #9E5A3C;
+  --terra-glow: rgba(194, 113, 79, 0.25);
+  --sage: #5F8868;
+  --sage-dark: #4A6F52;
+  --sage-light: #4A6F52;
+  --sage-glow: rgba(95, 136, 104, 0.2);
+  --amber: #B8942A;
+  --amber-light: #A07E1F;
+  --amber-glow: rgba(184, 148, 42, 0.2);
+  --shadow-glass: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --shadow-glass-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 30px rgba(194, 113, 79, 0.08);
+}
+
+body.light-mode .navbar {
+  background: rgba(245, 240, 235, 0.8) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
+}
+
+body.light-mode .hero-banner {
+  background:
+    linear-gradient(180deg, rgba(245,240,235,0.2) 0%, rgba(245,240,235,0.55) 100%),
+    url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Albert_Bierstadt_-_Among_the_Sierra_Nevada%2C_California_-_Google_Art_Project.jpg/2560px-Albert_Bierstadt_-_Among_the_Sierra_Nevada%2C_California_-_Google_Art_Project.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+body.light-mode .hero-inner {
+  background: rgba(255, 255, 255, 0.65);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .painting-card-badge {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+body.light-mode .lightbox-close {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: var(--text-primary);
+}
+
+body.light-mode .dataTables_wrapper .dataTables_filter input {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: var(--text-primary);
+}
+
+body.light-mode .selectize-input {
+  background: rgba(0, 0, 0, 0.03) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: var(--text-primary) !important;
+}
+
+body.light-mode .selectize-dropdown {
+  background: #F5F0EB !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+body.light-mode .form-card .form-control,
+body.light-mode .form-card input,
+body.light-mode .form-card select,
+body.light-mode .form-card textarea {
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--text-primary);
+}
+
+body.light-mode .admin-login-card .form-control {
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--text-primary);
+}
+
+body.light-mode ::-webkit-scrollbar-track {
+  background: #F5F0EB;
+}
+body.light-mode ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+/* ==============================================
+   SUBMISSION COUNT BADGE ON GALLERY CARDS
+   ============================================== */
+.submission-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border-subtle);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sage-light);
 }
 "
 
@@ -1555,26 +1622,11 @@ ui <- page_navbar(
                       ),
                       
                       tags$div(class = "stats-strip",
-                               # A three-column strip at the bottom of the hero showing live stats.
+                               # Single stat showing the number of paintings in the collection.
                                
                                tags$div(class = "stat-item",
                                         tags$div(class = "stat-value", as.character(nrow(paintings_data))),
-                                        
-                                        tags$div(class = "stat-label", "Locations")
-                               ),
-                               
-                               tags$div(class = "stat-item",
-                                        tags$div(class = "stat-value", textOutput("stat_submissions", inline = TRUE)),
-                                        # textOutput() displays a reactive value from the server.
-                                        # "stat_submissions" is updated live whenever a new submission is added.
-                                        # inline = TRUE means it renders as inline text, not a block.
-                                        tags$div(class = "stat-label", "Submissions")
-                               ),
-                               
-                               tags$div(class = "stat-item",
-                                        tags$div(class = "stat-value", textOutput("stat_approved", inline = TRUE)),
-                                        # Same as above but for approved comparisons.
-                                        tags$div(class = "stat-label", "Comparisons")
+                                        tags$div(class = "stat-label", "Paintings")
                                )
                       )
              )
@@ -1761,7 +1813,20 @@ ui <- page_navbar(
   
   # -- SPACER --------------------------------------------------------------
   nav_spacer(),
-  # Pushes everything after it (the Login tab) to the far right of the navbar.
+  # Pushes everything after it to the far right of the navbar.
+  
+  
+  # -- THEME TOGGLE --------------------------------------------------------
+  # A sun/moon button in the navbar that switches between dark and light mode.
+  nav_item(
+    tags$button(
+      id = "theme_toggle",
+      class = "theme-toggle",
+      title = "Toggle light/dark mode",
+      onclick = "toggleTheme()",
+      HTML("&#9788;")
+    )
+  ),
   
   
   # -- TAB 6: LOGIN ------------------------------------------------------
@@ -1820,31 +1885,6 @@ ui <- page_navbar(
   # The JavaScript functions below control when they appear.
   footer = tagList(
     
-    # -- PAINTING LIGHTBOX ----------------------------------------------
-    # A full-screen overlay that appears when a painting card is clicked.
-    tags$div(id = "lightbox",
-             tags$div(class = "lightbox-content",
-                      
-                      tags$div(class = "lightbox-close", onclick = "closeLightbox()", HTML("&times;")),
-                      # The  close button. onclick calls the JS closeLightbox() function.
-                      # &times; is the HTML code for the  symbol.
-                      
-                      tags$div(class = "lightbox-image-container",
-                               tags$img(id = "lightbox-img", class = "lightbox-image", src = "")
-                               # The image starts with an empty src=--. The JS openLightbox() function
-                               # fills in the correct image URL when a card is clicked.
-                      ),
-                      
-                      tags$div(class = "lightbox-info",
-                               tags$h3(id = "lightbox-title"),
-                               # These empty elements get filled by JS with the painting's title,
-                               # artist/year metadata, and descriptive context text.
-                               tags$p(id = "lightbox-meta", class = "meta"),
-                               tags$p(id = "lightbox-context", class = "context")
-                      )
-             )
-    ),
-    
     # -- COMPARISON LIGHTBOX --------------------------------------------
     # A full-screen side-by-side view. Left = historical painting, Right = modern photo.
     tags$div(id = "comparison-lightbox",
@@ -1869,35 +1909,19 @@ ui <- page_navbar(
     # tab switching, and fixing the Leaflet map rendering bug in tabs.
     tags$script(HTML(paste0("
 
+      // -- LIGHT/DARK MODE TOGGLE ----------------------------------------
+      window.toggleTheme = function() {
+        document.body.classList.toggle('light-mode');
+        var btn = document.getElementById('theme_toggle');
+        if (document.body.classList.contains('light-mode')) {
+          btn.innerHTML = '&#9789;';
+        } else {
+          btn.innerHTML = '&#9788;';
+        }
+      };
+
       // paintingsData is the CSV data injected from R into JavaScript as JSON.
-      // This lets JS look up painting details (image URL, title, etc.) by ID.
       var paintingsData = ", jsonlite::toJSON(paintings_data, auto_unbox = TRUE), ";
-
-      // Opens the painting lightbox for the painting with the given ID.
-      window.openLightbox = function(id) {
-        var p = paintingsData.find(function(x) { return x.id === id; });
-        // .find() searches the array for the painting whose id matches.
-        if (!p) return;
-        // If no match found, do nothing.
-
-        document.getElementById('lightbox-img').src = p.image_url;
-        // Sets the lightbox image to this painting's URL.
-        document.getElementById('lightbox-title').textContent = p.title;
-        document.getElementById('lightbox-meta').textContent = p.artist + ' \u2022 ' + p.year;
-        // \u2022 is the Unicode bullet point character
-        document.getElementById('lightbox-context').textContent = p.context;
-        document.getElementById('lightbox').classList.add('active');
-        // Adding the 'active' class triggers the CSS to show the lightbox.
-        document.body.style.overflow = 'hidden';
-        // Prevents the page from scrolling while the lightbox is open.
-      };
-
-      window.closeLightbox = function() {
-        document.getElementById('lightbox').classList.remove('active');
-        // Removing 'active' hides the lightbox again.
-        document.body.style.overflow = '';
-        // Restores normal page scrolling.
-      };
 
       // Opens the comparison lightbox with two images side by side.
       window.openComparisonLightbox = function(historicalUrl, modernUrl) {
@@ -1927,9 +1951,9 @@ ui <- page_navbar(
         document.body.style.overflow = '';
       };
 
-      // Pressing Escape closes whichever lightbox is open.
+      // Pressing Escape closes the comparison lightbox.
       document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') { closeLightbox(); closeComparisonLightbox(); }
+        if (e.key === 'Escape') { closeComparisonLightbox(); }
       });
 
       // -- 3D CARD TILT EFFECT ------------------------------------------
@@ -2036,6 +2060,12 @@ server <- function(input, output, session) {
     session$sendCustomMessage("switchTab", "Submit")
   })
   
+  # -- GALLERY "VIEW COMPARISONS" NAVIGATION --------------------------------
+  # When a "View Comparisons" link is clicked on a gallery card, switch to Compare tab.
+  observeEvent(input$go_compare_painting, {
+    session$sendCustomMessage("switchTab", "Compare")
+  })
+  
   
   # -- STATS DISPLAY --------------------------------------------------------
   # These render the live submission counts shown in the hero stats strip.
@@ -2049,41 +2079,68 @@ server <- function(input, output, session) {
   
   # -- PAINTING CARDS --------------------------------------------------------
   # Dynamically generates one HTML card per painting from the CSV data.
+  # Shows submission count per painting and a "View Comparisons" link
+  # when approved comparisons exist for that painting.
   output$painting_cards <- renderUI({
-    # renderUI() generates HTML content dynamically. The result fills the
-    # uiOutput("painting_cards") placeholder in the UI.
+    
+    # Count ALL submissions per painting_id.
+    all_subs <- rv$submissions
+    sub_counts <- if (nrow(all_subs) > 0) {
+      as.data.frame(table(all_subs$painting_id), stringsAsFactors = FALSE)
+    } else {
+      data.frame(Var1 = character(), Freq = integer(), stringsAsFactors = FALSE)
+    }
+    
+    # Count APPROVED submissions per painting to decide whether to show
+    # the "View Comparisons" button.
+    approved_subs <- rv$approved
+    approved_counts <- if (nrow(approved_subs) > 0) {
+      as.data.frame(table(approved_subs$painting_id), stringsAsFactors = FALSE)
+    } else {
+      data.frame(Var1 = character(), Freq = integer(), stringsAsFactors = FALSE)
+    }
     
     cards <- lapply(1:nrow(paintings_data), function(i) {
-      # lapply() loops over each row index and returns a list of HTML elements.
       p <- paintings_data[i, ]
-      # p is a single row from the paintings data frame.
       
-      tags$div(class = "painting-card", onclick = sprintf("openLightbox(%d)", p$id),
-               # sprintf() builds a JavaScript call string like: openLightbox(3)
-               # So clicking this card calls the JS function with this painting's ID.
+      # Look up how many total submissions exist for this painting.
+      count_match <- sub_counts[sub_counts$Var1 == as.character(p$id), "Freq"]
+      sub_count <- if (length(count_match) > 0) count_match[1] else 0
+      
+      # Look up how many APPROVED comparisons exist for this painting.
+      approved_match <- approved_counts[approved_counts$Var1 == as.character(p$id), "Freq"]
+      approved_count <- if (length(approved_match) > 0) approved_match[1] else 0
+      
+      tags$div(class = "painting-card",
+               # No onclick -- the painting lightbox has been removed.
                
                tags$div(class = "painting-card-img-wrap",
                         tags$img(src = p$image_url, class = "painting-image", alt = p$title),
-                        # The painting image. src comes from the CSV's image_url column.
-                        # alt text is used by screen readers and shown if the image fails to load.
                         tags$div(class = "painting-card-badge", p$year)
-                        # A small badge showing the year, positioned over the image corner via CSS.
                ),
                
                tags$div(class = "painting-info",
                         tags$h3(class = "painting-title", p$title),
                         tags$div(class = "painting-meta", paste0(p$artist, " \u2022 ", p$year)),
-                        # paste0() joins strings with no separator. \u2022 is the bullet character.
                         tags$p(class = "painting-context", p$context),
-                        tags$div(class = "painting-card-cta", HTML("View Full &rarr;"))
-                        # &rarr; is HTML for the ' right arrow character.
+                        # Footer row: comparison count on left, view link on right
+                        tags$div(class = "painting-card-footer",
+                                 tags$div(class = "submission-count-badge",
+                                          paste0(approved_count, " comparison", ifelse(approved_count != 1, "s", ""))
+                                 ),
+                                 # Only show the "View Comparison(s)" link when approved comparisons exist.
+                                 if (approved_count > 0) {
+                                   tags$div(class = "painting-card-cta",
+                                            onclick = "event.stopPropagation(); Shiny.setInputValue('go_compare_painting', Math.random());",
+                                            HTML(paste0("View Comparison", ifelse(approved_count != 1, "s", ""), " &rarr;"))
+                                   )
+                                 }
+                        )
                )
       )
     })
     
     tagList(cards)
-    # tagList() combines the list of card elements into a single HTML fragment
-    # that Shiny can render as one unit.
   })
   
   
