@@ -857,6 +857,31 @@ body {
   margin-bottom: 16px;
 }
 
+/* View Comparison button inside the map info panel */
+.map-info-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--terra);
+  color: var(--terra);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 10px 20px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s var(--ease);
+  margin-bottom: 20px;
+}
+
+.map-info-cta:hover {
+  background: rgba(232, 151, 107, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px var(--terra-glow);
+}
+
 /* Responsive override for map layout */
 @media (max-width: 1024px) {
   .map-split-layout { grid-template-columns: 1fr; }
@@ -1712,7 +1737,7 @@ ui <- page_navbar(
   # A form where visitors upload a modern photo from a Bierstadt location.
   # They can optionally add their name, email, GPS coordinates, and observations.
   nav_panel(
-    title = "Submit",
+    title = "Contribute",
     icon = icon("camera"),
     
     tags$div(class = "section-header",
@@ -2265,6 +2290,10 @@ server <- function(input, output, session) {
       if (nrow(p) == 0) return(NULL)
       p <- p[1, ]
       
+      # Check if approved comparisons exist for this painting
+      approved_for_painting <- rv$approved[rv$approved$painting_id == p$id, ]
+      ap_count <- nrow(approved_for_painting)
+      
       tagList(
         tags$div(class = "map-info-header",
                  tags$div(class = "map-info-dot painting"),
@@ -2274,6 +2303,13 @@ server <- function(input, output, session) {
         tags$div(class = "map-info-meta", paste0(p$artist, " | ", p$year)),
         tags$img(class = "map-info-image", src = p$image_url, alt = p$title),
         tags$p(class = "map-info-context", p$context),
+        # Show "View Comparison(s)" button if approved comparisons exist
+        if (ap_count > 0) {
+          tags$div(class = "map-info-cta",
+                   onclick = "Shiny.setInputValue('go_compare_painting', Math.random());",
+                   HTML(paste0("View Comparison", ifelse(ap_count != 1, "s", ""), " &rarr;"))
+          )
+        },
         tags$div(class = "map-info-coords",
                  tags$div(class = "coord-box",
                           tags$div(class = "coord-label", "Latitude"),
@@ -2305,6 +2341,11 @@ server <- function(input, output, session) {
         if (!is.null(sub$observations) && sub$observations != "") {
           tags$div(class = "map-info-observations", sub$observations)
         },
+        # Always show View Comparison since this IS an approved submission
+        tags$div(class = "map-info-cta",
+                 onclick = "Shiny.setInputValue('go_compare_painting', Math.random());",
+                 HTML("View Comparison &rarr;")
+        ),
         tags$div(class = "map-info-coords",
                  tags$div(class = "coord-box",
                           tags$div(class = "coord-label", "Latitude"),
