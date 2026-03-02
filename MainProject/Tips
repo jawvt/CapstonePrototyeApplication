@@ -64,3 +64,9 @@ git checkout -- <file>: Discard changes in a file
 git reset <file>: Unstage a file
 git reset --hard: Discard all changes and revert to the last commit
 git revert <commit>: Create a new commit that undoes the changes of a previous commit
+
+
+
+
+
+
