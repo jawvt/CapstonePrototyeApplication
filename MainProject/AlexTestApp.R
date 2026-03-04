@@ -12,6 +12,8 @@
 #
 ############################################
 
+library(DBI)
+library(RPostgres)
 library(shiny)
 library(bslib)
 library(leaflet)
@@ -20,48 +22,110 @@ library(DT)
 library(shinyjs)
 
 ############################################
-# User Inupt Data Storage
-# This code manages local storage for the app:
-# 1. Sets up a local folder "app_data" to store data files.
-# 2. Defines paths for submissions and approved data (.rds files).
-# 3. Creates the folder if it doesn't exist.
-# 4. Provides functions to load data from an .rds file (or create an empty
-#    data frame if the file doesn't exist) and to save data back to an .rds file.
+# Supabase Database Connection
+# Connects to a PostgreSQL database hosted on Supabase.
+# Replaces the old local .rds file storage with a remote database.
 #
-# Non local data storage for final application?
+# Tables used:
+#   - paintings: all Bierstadt painting data (replaces BPaintings.csv)
+#   - submissions: user photo submissions with approval_status column
+#                  (replaces both submissions.rds and approved.rds)
+#
+# IMPORTANT: Requires a .Renviron file in the app directory with:
+#   SUPABASE_HOST=your-project.supabase.co
+#   SUPABASE_DB=postgres
+#   SUPABASE_USER=postgres.your-project
+#   SUPABASE_PASSWORD=your-password
 ############################################
 
-LocalDataDirectory <- "app_data"
-SUBMISSIONS_FILE <- file.path(LocalDataDirectory, "submissions.rds")
-APPROVED_FILE <- file.path(LocalDataDirectory, "approved.rds")
+readRenviron(".Renviron")
 
-if (!dir.exists(LocalDataDirectory)) dir.create(LocalDataDirectory, recursive = TRUE)
+# Helper: create a fresh database connection.
+# Called whenever we need to read or write. Each operation opens a connection,
+# does its work, and closes it — avoids stale/dropped connection issues.
+get_db_con <- function() {
+  dbConnect(
+    Postgres(),
+    host     = Sys.getenv("SUPABASE_HOST"),
+    port     = 5432,
+    dbname   = Sys.getenv("SUPABASE_DB"),
+    user     = Sys.getenv("SUPABASE_USER"),
+    password = Sys.getenv("SUPABASE_PASSWORD"),
+    sslmode  = "require"
+  )
+}
 
-load_data <- function(file_path) {
-  if (file.exists(file_path)) {
-    readRDS(file_path)
-  } else {
-    data.frame(
+# Helper: fetch all submissions from the database.
+# Returns a data frame with the same columns as the old .rds files.
+# If the table is empty, returns an empty data frame with correct columns.
+db_load_submissions <- function() {
+  con <- get_db_con()
+  on.exit(dbDisconnect(con))
+  result <- dbGetQuery(con, "SELECT * FROM submissions ORDER BY submission_date DESC")
+  if (nrow(result) == 0) {
+    return(data.frame(
       submission_id = character(), name = character(), email = character(),
       painting_id = integer(), photo_url = character(),
       latitude = numeric(), longitude = numeric(),
       observations = character(), submission_date = character(),
       approval_status = character(), stringsAsFactors = FALSE
-    )
+    ))
   }
+  result
 }
 
-save_data <- function(data, file_path) saveRDS(data, file_path)
+# Helper: insert a single new submission row into the database.
+db_insert_submission <- function(sub_df) {
+  con <- get_db_con()
+  on.exit(dbDisconnect(con))
+  dbExecute(con, 
+            "INSERT INTO submissions (submission_id, name, email, painting_id, photo_url,
+     latitude, longitude, observations, submission_date, approval_status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+            params = list(
+              sub_df$submission_id,
+              sub_df$name,
+              sub_df$email,
+              sub_df$painting_id,
+              sub_df$photo_url,
+              sub_df$latitude,
+              sub_df$longitude,
+              sub_df$observations,
+              sub_df$submission_date,
+              sub_df$approval_status
+            )
+  )
+}
+
+# Helper: update the approval_status of a submission by its submission_id.
+db_update_status <- function(submission_id, new_status) {
+  con <- get_db_con()
+  on.exit(dbDisconnect(con))
+  dbExecute(con,
+            "UPDATE submissions SET approval_status = $1 WHERE submission_id = $2",
+            params = list(new_status, submission_id)
+  )
+}
+
+# Helper: delete a submission by its submission_id.
+db_delete_submission <- function(submission_id) {
+  con <- get_db_con()
+  on.exit(dbDisconnect(con))
+  dbExecute(con,
+            "DELETE FROM submissions WHERE submission_id = $1",
+            params = list(submission_id)
+  )
+}
 
 ############################################
 # Painting Data
-# Imports painting data csv locally
-# reads CSV and creates data frame
-# How can we make this dynamic?
+# Loads painting data from Supabase instead of local CSV.
+# This runs once when the app starts.
 ############################################
 
-paintings_csv <- "BPaintings.csv"
-paintings_data <- read.csv(paintings_csv, stringsAsFactors = FALSE)
+con <- get_db_con()
+paintings_data <- dbGetQuery(con, "SELECT * FROM paintings ORDER BY id")
+dbDisconnect(con)
 
 ############################################
 # Custom CSS
@@ -1832,7 +1896,7 @@ ui <- page_navbar(
   # A form where visitors upload a modern photo from a Bierstadt location.
   # They can optionally add their name, email, GPS coordinates, and observations.
   nav_panel(
-    title = "Submit",
+    title = "Contribute",
     icon = icon("camera"),
     
     tags$div(class = "section-header",
@@ -2156,8 +2220,9 @@ server <- function(input, output, session) {
     admin_auth = FALSE,
     submission_success = FALSE,
     submission_error = NULL,
-    submissions = load_data(SUBMISSIONS_FILE),
-    approved = load_data(APPROVED_FILE),
+    submissions = db_load_submissions(),
+    # Single source of truth — approved items are filtered with
+    # rv$submissions[rv$submissions$approval_status == "Approved", ]
     approved_trigger = 0,
     selected_marker = NULL,   # stores the ID of the currently clicked map marker
     selected_type = NULL,     # "painting" or "submission" to distinguish marker types
@@ -2224,7 +2289,7 @@ server <- function(input, output, session) {
   # as.character() converts the number to a string for display.
   # This automatically re-runs whenever rv$submissions changes.
   
-  output$stat_approved <- renderText({ as.character(nrow(rv$approved)) })
+  output$stat_approved <- renderText({ as.character(nrow(rv$submissions[rv$submissions$approval_status == "Approved", ])) })
   
   
   # -- PAINTING CARDS --------------------------------------------------------
@@ -2243,7 +2308,7 @@ server <- function(input, output, session) {
     
     # Count APPROVED submissions per painting to decide whether to show
     # the "View Comparisons" button.
-    approved_subs <- rv$approved
+    approved_subs <- rv$submissions[rv$submissions$approval_status == "Approved", ]
     approved_counts <- if (nrow(approved_subs) > 0) {
       as.data.frame(table(approved_subs$painting_id), stringsAsFactors = FALSE)
     } else {
@@ -2318,7 +2383,7 @@ server <- function(input, output, session) {
   # based on rv$map_filter. Uses leafletProxy to add/remove markers without
   # re-rendering the entire map.
   observe({
-    approved <- rv$approved
+    approved <- rv$submissions[rv$submissions$approval_status == "Approved", ]
     rv$approved_trigger
     filter <- rv$map_filter
     
@@ -2439,7 +2504,7 @@ server <- function(input, output, session) {
       p <- p[1, ]
       
       # Check if approved comparisons exist for this painting
-      approved_for_painting <- rv$approved[rv$approved$painting_id == p$id, ]
+      approved_for_painting <- rv$submissions[rv$submissions$approval_status == "Approved" & rv$submissions$painting_id == p$id, ]
       ap_count <- nrow(approved_for_painting)
       
       tagList(
@@ -2471,7 +2536,7 @@ server <- function(input, output, session) {
       )
       
     } else if (rv$selected_type == "submission") {
-      sub <- rv$approved[rv$approved$submission_id == rv$selected_marker, ]
+      sub <- rv$submissions[rv$submissions$submission_id == rv$selected_marker & rv$submissions$approval_status == "Approved", ]
       if (nrow(sub) == 0) return(NULL)
       sub <- sub[1, ]
       
@@ -2639,10 +2704,10 @@ server <- function(input, output, session) {
       )
       
       rv$submissions <- rbind(rv$submissions, new_submission)
-      # rbind() appends the new row to the bottom of the existing submissions table.
+      # rbind() appends the new row to the in-memory data frame for immediate UI update.
       
-      save_data(rv$submissions, SUBMISSIONS_FILE)
-      # Writes the updated submissions data frame to disk as an .rds file.
+      db_insert_submission(new_submission)
+      # Writes the new submission to Supabase.
       
       rv$submission_success <- TRUE
       # Triggers the success message to appear above the form.
@@ -2671,7 +2736,7 @@ server <- function(input, output, session) {
   # with a banner showing which painting is being filtered and a "See All" button.
   output$comparison_gallery <- renderUI({
     rv$approved_trigger
-    approved <- rv$approved
+    approved <- rv$submissions[rv$submissions$approval_status == "Approved", ]
     filter_id <- rv$filter_painting_id
     
     if (nrow(approved) == 0) {
@@ -2783,30 +2848,17 @@ server <- function(input, output, session) {
   # -- APPROVE SUBMISSION --------------------------------------------------
   observeEvent(input$approve_submission, {
     if (length(input$admin_table_rows_selected) > 0) {
-      # Only act if a row is actually selected in the table.
       idx <- input$admin_table_rows_selected
-      # idx is the row number of the selected submission.
+      sid <- rv$submissions[idx, "submission_id"]
       
-      sub <- rv$submissions[idx, ]
-      # Extract that specific submission row.
+      # Update in Supabase
+      db_update_status(sid, "Approved")
       
-      sub$approval_status <- "Approved"
-      # Update its status.
-      
-      rv$approved <- rbind(rv$approved, sub)
-      # Add it to the approved data frame, making it appear on the Compare tab.
-      
-      save_data(rv$approved, APPROVED_FILE)
-      # Persist the approved data to disk.
-      
+      # Update in-memory for immediate UI refresh
       rv$submissions[idx, "approval_status"] <- "Approved"
-      # Also update the status in the main submissions table.
-      
-      save_data(rv$submissions, SUBMISSIONS_FILE)
-      # Persist the updated submissions to disk.
+      rv$approved_trigger <- rv$approved_trigger + 1
       
       showNotification("Approved!", type = "message")
-      # Shows a small toast notification in the corner of the browser.
     }
   })
   
@@ -2815,8 +2867,11 @@ server <- function(input, output, session) {
   observeEvent(input$reject_submission, {
     if (length(input$admin_table_rows_selected) > 0) {
       idx <- input$admin_table_rows_selected
+      sid <- rv$submissions[idx, "submission_id"]
+      
+      db_update_status(sid, "Rejected")
       rv$submissions[idx, "approval_status"] <- "Rejected"
-      save_data(rv$submissions, SUBMISSIONS_FILE)
+      
       showNotification("Rejected.", type = "warning")
     }
   })
@@ -2825,20 +2880,14 @@ server <- function(input, output, session) {
   observeEvent(input$delete_submission, {
     if (length(input$admin_table_rows_selected) > 0) {
       idx <- input$admin_table_rows_selected
-      # Grab the submission_id of the row being deleted before removing it.
-      # This is used to find and remove the matching row in the approved data.
       deleted_id <- rv$submissions[idx, "submission_id"]
       
-      rv$submissions <- rv$submissions[-idx, ]
-      # Remove the selected row from the submissions data frame entirely.
-      save_data(rv$submissions, SUBMISSIONS_FILE)
-      # Persist the updated submissions to disk.
+      # Delete from Supabase
+      db_delete_submission(deleted_id)
       
-      rv$approved <- rv$approved[rv$approved$submission_id != deleted_id, ]
-      save_data(rv$approved, APPROVED_FILE)
+      # Remove from in-memory data frame
+      rv$submissions <- rv$submissions[-idx, ]
       rv$approved_trigger <- rv$approved_trigger + 1
-      # Increment the trigger counter to force comparison_gallery and any
-      # other outputs watching approved_trigger to immediately re-render.
       
       showNotification("Deleted.", type = "error")
     }
@@ -2847,11 +2896,11 @@ server <- function(input, output, session) {
   
   # -- REFRESH ADMIN DATA --------------------------------------------------
   observeEvent(input$refresh_admin, {
-    # Re-reads both data files from disk and updates the reactive values.
-    # Useful if data was modified externally or by another session.
-    rv$submissions <- load_data(SUBMISSIONS_FILE)
-    rv$approved <- load_data(APPROVED_FILE)
-    showNotification("Data refreshed!", type = "message")
+    # Re-reads submissions from Supabase.
+    # Useful if data was modified externally or by another admin session.
+    rv$submissions <- db_load_submissions()
+    rv$approved_trigger <- rv$approved_trigger + 1
+    showNotification("Data refreshed from database!", type = "message")
   })
 }
 
