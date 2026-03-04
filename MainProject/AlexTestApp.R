@@ -19,7 +19,7 @@ library(bslib)
 library(leaflet)
 library(htmltools)
 library(DT)
-library(shinyjs)q
+library(shinyjs)
 
 ############################################
 # User Inupt Data Storage
