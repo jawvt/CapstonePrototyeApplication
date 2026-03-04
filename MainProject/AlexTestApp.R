@@ -936,44 +936,6 @@ body {
   box-shadow: 0 0 12px rgba(52, 211, 153, 0.3);
 }
 
-/* Pulsing user location marker on the Leaflet map */
-.user-location-pulse {
-  width: 18px;
-  height: 18px;
-  position: relative;
-}
-
-.user-location-pulse .dot {
-  width: 14px;
-  height: 14px;
-  background: #3B82F6;
-  border: 3px solid #fff;
-  border-radius: 50%;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 2;
-  box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
-}
-
-.user-location-pulse .ring {
-  width: 40px;
-  height: 40px;
-  border: 2px solid rgba(59, 130, 246, 0.5);
-  background: rgba(59, 130, 246, 0.12);
-  border-radius: 50%;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation: locPulse 2s ease-out infinite;
-}
-
-@keyframes locPulse {
-  0%   { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
-}
 
 /* Submission info extras */
 .map-info-observations {
