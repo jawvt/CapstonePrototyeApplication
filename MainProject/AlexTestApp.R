@@ -928,6 +928,53 @@ body {
 .legend-dot.red { background: var(--terra); }
 .legend-dot.blue { background: #60A5FA; }
 
+/* Locate Me button */
+.locate-me-btn.tracking {
+  border-color: #34D399 !important;
+  color: #34D399 !important;
+  background: rgba(52, 211, 153, 0.12) !important;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.3);
+}
+
+/* Pulsing user location marker on the Leaflet map */
+.user-location-pulse {
+  width: 18px;
+  height: 18px;
+  position: relative;
+}
+
+.user-location-pulse .dot {
+  width: 14px;
+  height: 14px;
+  background: #3B82F6;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+}
+
+.user-location-pulse .ring {
+  width: 40px;
+  height: 40px;
+  border: 2px solid rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.12);
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: locPulse 2s ease-out infinite;
+}
+
+@keyframes locPulse {
+  0%   { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+}
+
 /* Submission info extras */
 .map-info-observations {
   background: var(--glass-bg-light);
@@ -1794,6 +1841,10 @@ ui <- page_navbar(
                       onclick = "Shiny.setInputValue('set_map_filter', 'submissions');",
                       tags$span(class = "legend-dot blue"),
                       "Submissions"
+             ),
+             tags$div(class = "map-filter-btn locate-me-btn", id = "locate_me_btn",
+                      onclick = "startGeolocation();",
+                      HTML("&#9678; My Location")
              )
     ),
     
@@ -2123,6 +2174,53 @@ ui <- page_navbar(
         if (tabLink) tabLink.click();
       });
 
+      // -- LIVE GEOLOCATION ------------------------------------------------
+      // Uses the browser Geolocation API with watchPosition to continuously
+      // track the user and send lat/lng updates to Shiny.
+      var geoWatchId = null;
+
+      window.startGeolocation = function() {
+        var btn = document.getElementById('locate_me_btn');
+
+        // If already tracking, stop
+        if (geoWatchId !== null) {
+          navigator.geolocation.clearWatch(geoWatchId);
+          geoWatchId = null;
+          btn.classList.remove('tracking');
+          Shiny.setInputValue('user_location', null);
+          return;
+        }
+
+        if (!navigator.geolocation) {
+          alert('Geolocation is not supported by your browser.');
+          return;
+        }
+
+        btn.classList.add('tracking');
+
+        geoWatchId = navigator.geolocation.watchPosition(
+          function(pos) {
+            Shiny.setInputValue('user_location', {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              acc: pos.coords.accuracy,
+              t: Date.now()
+            });
+          },
+          function(err) {
+            console.warn('Geolocation error:', err.message);
+            btn.classList.remove('tracking');
+            geoWatchId = null;
+            if (err.code === 1) {
+              alert('Location access was denied. Please allow location access in your browser settings.');
+            } else {
+              alert('Unable to retrieve your location.');
+            }
+          },
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+        );
+      };
+
       // -- LEAFLET MAP FIX ----------------------------------------------
       // Leaflet maps don't render correctly when inside a hidden tab because
       // they calculate their size when the tab isn't visible yet (size = 0).
@@ -2387,6 +2485,56 @@ server <- function(input, output, session) {
         document.getElementById('map_filter_%s').classList.add('active');
       ", new_filter))
     }
+  })
+  
+  # -- USER LIVE LOCATION MARKER --------------------------------------------
+  # Draws a pulsing blue dot on the map at the user's current GPS position.
+  # Uses a custom divIcon with CSS animation. The watchPosition JS sends
+  # updated coordinates continuously, and this observer redraws the marker.
+  observeEvent(input$user_location, {
+    loc <- input$user_location
+    proxy <- leafletProxy("main_map")
+    
+    if (is.null(loc)) {
+      # User toggled tracking off — remove the marker
+      proxy %>% clearGroup("user_location")
+      return()
+    }
+    
+    proxy %>%
+      clearGroup("user_location") %>%
+      addMarkers(
+        lng = loc$lng, lat = loc$lat,
+        group = "user_location",
+        icon = makeIcon(
+          iconUrl = NULL,
+          iconWidth = 18, iconHeight = 18,
+          iconAnchorX = 9, iconAnchorY = 9
+        ),
+        options = markerOptions(interactive = FALSE)
+      )
+    
+    # Replace the default marker with a pulsing custom div via JS
+    shinyjs::runjs("
+      (function() {
+        var markers = document.querySelectorAll('.leaflet-marker-icon');
+        // Find the user location marker (last added, no src)
+        for (var i = markers.length - 1; i >= 0; i--) {
+          var m = markers[i];
+          if (!m.src || m.src === '' || m.src === window.location.href) {
+            m.style.background = 'none';
+            m.style.border = 'none';
+            m.style.boxShadow = 'none';
+            m.style.width = '40px';
+            m.style.height = '40px';
+            m.style.marginLeft = '-20px';
+            m.style.marginTop = '-20px';
+            m.innerHTML = '<div class=\"user-location-pulse\"><div class=\"ring\"></div><div class=\"dot\"></div></div>';
+            break;
+          }
+        }
+      })();
+    ")
   })
   
   # -- MARKER CLICK -> INFO PANEL (UPDATED) ----------------------------------
