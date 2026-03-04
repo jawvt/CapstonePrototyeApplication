@@ -1836,7 +1836,7 @@ ui <- page_navbar(
   
   
   # -- TAB 4: SUBMIT ------------------------------------------------------
-  # A form where visitors upload a modern photo from a Bierstadt location.
+  # A form where visitors upload a modern photo from a painting location.
   # They can optionally add their name, email, GPS coordinates, and observations.
   nav_panel(
     title = "Submit",
