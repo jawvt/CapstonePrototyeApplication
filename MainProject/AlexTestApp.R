@@ -1044,11 +1044,80 @@ body {
   border: 1px solid var(--glass-border-subtle);
 }
 
+/* Submitter name badge in top-left of comparison thumbnails */
+.comparison-thumb-submitter {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  background: rgba(15, 26, 20, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border-subtle);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+}
+
 .no-comparisons {
   text-align: center;
   padding: 80px 24px;
   color: var(--text-secondary);
   font-size: 18px;
+}
+
+/* Filter banner shown when Compare tab is filtered to a specific painting */
+.compare-filter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 16px 24px;
+  margin-bottom: 28px;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.compare-filter-text {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.compare-filter-text strong {
+  color: var(--text-primary);
+}
+
+.compare-filter-see-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--terra);
+  color: var(--terra);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 8px 20px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s var(--ease);
+}
+
+.compare-filter-see-all:hover {
+  background: rgba(232, 151, 107, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px var(--terra-glow);
 }
 
 /* ==============================================
@@ -1737,7 +1806,7 @@ ui <- page_navbar(
   # A form where visitors upload a modern photo from a Bierstadt location.
   # They can optionally add their name, email, GPS coordinates, and observations.
   nav_panel(
-    title = "Contribute",
+    title = "Submit",
     icon = icon("camera"),
     
     tags$div(class = "section-header",
@@ -2064,8 +2133,9 @@ server <- function(input, output, session) {
     submissions = load_data(SUBMISSIONS_FILE),
     approved = load_data(APPROVED_FILE),
     approved_trigger = 0,
-    selected_marker = NULL,   # UPDATED: stores the ID of the currently clicked map marker
-    selected_type = NULL      # UPDATED: "painting" or "submission" to distinguish marker types
+    selected_marker = NULL,   # stores the ID of the currently clicked map marker
+    selected_type = NULL,     # "painting" or "submission" to distinguish marker types
+    filter_painting_id = NULL # when set, the Compare tab only shows comparisons for this painting
   )
   
   # UPDATED: Tracks which basemap is currently displayed to avoid unnecessary redraws
@@ -2085,10 +2155,38 @@ server <- function(input, output, session) {
     session$sendCustomMessage("switchTab", "Submit")
   })
   
-  # -- GALLERY "VIEW COMPARISONS" NAVIGATION --------------------------------
-  # When a "View Comparisons" link is clicked on a gallery card, switch to Compare tab.
+  # -- GALLERY / MAP "VIEW COMPARISONS" NAVIGATION ---------------------------
+  # When a "View Comparisons" link is clicked from a gallery card or map panel,
+  # this handler stores the painting ID to filter the Compare tab, then navigates.
   observeEvent(input$go_compare_painting, {
+    val <- input$go_compare_painting
+    # From gallery cards: a list with $id (painting ID) and $t (timestamp).
+    # From map info panels: a raw numeric from Math.random().
+    
+    # Extract the painting ID depending on the format
+    if (is.list(val) && !is.null(val$id)) {
+      painting_id <- as.integer(val$id)
+    } else if (is.numeric(val)) {
+      painting_id <- val
+    } else {
+      painting_id <- NULL
+    }
+    
+    # Only set the filter if it matches a real painting ID.
+    # Otherwise, clear any existing filter so Compare shows all.
+    if (!is.null(painting_id) && painting_id %in% paintings_data$id) {
+      rv$filter_painting_id <- as.integer(painting_id)
+    } else {
+      rv$filter_painting_id <- NULL
+    }
+    
     session$sendCustomMessage("switchTab", "Compare")
+  })
+  
+  # -- "SEE ALL" COMPARISONS RESET ------------------------------------------
+  # Clears the painting filter so the Compare tab shows all comparisons again.
+  observeEvent(input$clear_compare_filter, {
+    rv$filter_painting_id <- NULL
   })
   
   
@@ -2156,7 +2254,10 @@ server <- function(input, output, session) {
                                  # Only show the "View Comparison(s)" link when approved comparisons exist.
                                  if (approved_count > 0) {
                                    tags$div(class = "painting-card-cta",
-                                            onclick = "event.stopPropagation(); Shiny.setInputValue('go_compare_painting', Math.random());",
+                                            onclick = sprintf("event.stopPropagation(); Shiny.setInputValue('go_compare_painting', {id: %d, t: Date.now()});", p$id),
+                                            # Sends an object with the painting ID and a timestamp.
+                                            # The timestamp ensures Shiny treats every click as a new value,
+                                            # even when clicking the same card twice in a row.
                                             HTML(paste0("View Comparison", ifelse(approved_count != 1, "s", ""), " &rarr;"))
                                    )
                                  }
@@ -2396,6 +2497,13 @@ server <- function(input, output, session) {
         shinyjs::runjs("window.dispatchEvent(new Event('resize'));")
       })
     }
+    
+    # Clear the comparison filter whenever the user navigates AWAY from Compare.
+    # This way, returning to Compare later always shows all comparisons,
+    # unless the user clicks "View Comparisons" from a gallery card again.
+    if (input$main_tabs != "Compare") {
+      rv$filter_painting_id <- NULL
+    }
   })
   
   # -- SUBMISSION FORM MESSAGES --------------------------------------------
@@ -2511,45 +2619,71 @@ server <- function(input, output, session) {
   
   # -- COMPARISON GALLERY --------------------------------------------------
   # Generates the grid of approved photo thumbnails shown on the Compare tab.
+  # When rv$filter_painting_id is set (from clicking "View Comparisons" on a
+  # gallery card), only shows comparisons for that specific painting, along
+  # with a banner showing which painting is being filtered and a "See All" button.
   output$comparison_gallery <- renderUI({
     rv$approved_trigger
-    # Reading this value here means the output will re-render whenever
-    # approved_trigger is incremented, even if rv$approved change isn't
-    # detected automatically.
     approved <- rv$approved
+    filter_id <- rv$filter_painting_id
     
     if (nrow(approved) == 0) {
-      # If no submissions have been approved yet, show a placeholder message.
       return(tags$div(class = "no-comparisons",
                       HTML("No approved comparisons yet. Be the first to contribute!")
-                      
       ))
     }
     
-    cards <- lapply(1:nrow(approved), function(i) {
-      sub <- approved[i, ]
-      # sub = one approved submission row.
-      
+    # Apply filter if set
+    if (!is.null(filter_id)) {
+      filtered <- approved[approved$painting_id == filter_id, ]
+      filter_painting <- paintings_data[paintings_data$id == filter_id, ]
+      filter_name <- if (nrow(filter_painting) > 0) filter_painting$title[1] else "Unknown"
+    } else {
+      filtered <- approved
+    }
+    
+    if (nrow(filtered) == 0) {
+      # Filter is active but no comparisons match (shouldn't normally happen)
+      return(tagList(
+        tags$div(class = "compare-filter-banner",
+                 tags$span(paste0("No comparisons found for this painting.")),
+                 tags$div(class = "compare-filter-see-all",
+                          onclick = "Shiny.setInputValue('clear_compare_filter', Math.random());",
+                          HTML("See All Comparisons &rarr;"))
+        )
+      ))
+    }
+    
+    cards <- lapply(1:nrow(filtered), function(i) {
+      sub <- filtered[i, ]
       painting <- paintings_data[paintings_data$id == sub$painting_id, ]
-      # Look up the matching painting from the CSV using the stored painting_id.
       
       tags$div(class = "comparison-thumb",
                onclick = sprintf("openComparisonLightbox('%s', '%s')", painting$image_url, sub$photo_url),
-               # When clicked, opens the side-by-side lightbox with the historical
-               # painting URL and the user's modern photo URL.
-               
+               tags$div(class = "comparison-thumb-submitter", sub$name),
+               # Submitter's name shown in the top-left corner of the thumbnail.
                tags$img(src = painting$image_url, alt = painting$title),
-               # Shows the historical painting as the thumbnail preview.
-               
                tags$div(class = "comparison-thumb-overlay",
                         tags$div(class = "comparison-thumb-label", HTML("&#8644; Compare"))
-                        # &#8644; is the  compare arrows character. Shown on hover via CSS.
                )
       )
     })
     
-    tags$div(class = "comparison-grid", cards)
-    # Wraps all thumbnails in the grid container.
+    # Build the final output: filter banner (if filtered) + grid
+    tagList(
+      # Show the filter banner only when a specific painting is being viewed
+      if (!is.null(filter_id)) {
+        tags$div(class = "compare-filter-banner",
+                 tags$span(class = "compare-filter-text",
+                           HTML(paste0("Showing comparisons for <strong>", htmltools::htmlEscape(filter_name), "</strong>"))
+                 ),
+                 tags$div(class = "compare-filter-see-all",
+                          onclick = "Shiny.setInputValue('clear_compare_filter', Math.random());",
+                          HTML("See All Comparisons &rarr;"))
+        )
+      },
+      tags$div(class = "comparison-grid", cards)
+    )
   })
   
   
