@@ -2278,23 +2278,25 @@ server <- function(input, output, session) {
                                  tags$div(class = "submission-count-badge",
                                           paste0(approved_count, " comparison", ifelse(approved_count != 1, "s", ""))
                                  ),
-                                 # Only show the "View Comparison(s)" link when approved comparisons exist.
-                                 if (approved_count > 0) {
-                                   tags$div(class = "painting-card-cta",
-                                            onclick = sprintf("event.stopPropagation(); Shiny.setInputValue('go_compare_painting', {id: %d, t: Date.now()});", p$id),
-                                            # Sends an object with the painting ID and a timestamp.
-                                            # The timestamp ensures Shiny treats every click as a new value,
-                                            # even when clicking the same card twice in a row.
-                                            HTML(paste0("View Comparison", ifelse(approved_count != 1, "s", ""), " &rarr;"))
-                                   )
-                                 }
-                        )
-               )
-      )
-    })
+                                 tags$div(style = "display: flex; align-items: center; gap: 12px;",
+                                          if (approved_count > 0) {
+                                            tags$div(class = "painting-card-cta",
+                                                     onclick = sprintf("event.stopPropagation(); Shiny.setInputValue('go_compare_painting', {id: %d, t: Date.now()});", p$id),
+                                                     HTML(paste0("View Comparison", ifelse(approved_count != 1, "s", ""), " &rarr;"))
+                                            )
+                                          },
+                                          tags$div(class = "painting-card-cta",
+                                                   style = "color: var(--sage-light); white-space: nowrap;",
+                                                   onclick = sprintf("event.stopPropagation(); Shiny.setInputValue('go_contribute_painting', {id: %d, t: Date.now()});", p$id),
+                                                   HTML("&#43; Contribute Photo")
+                                          )
+                                 )  # closes painting-card-footer
+                        )  # closes painting-info
+               )  # closes painting-card
+#    })  # closes lapply
     
-    tagList(cards)
-  })
+#    tagList(cards)
+  )
   
   
   # -- MAP (UPDATED) --------------------------------------------------------
