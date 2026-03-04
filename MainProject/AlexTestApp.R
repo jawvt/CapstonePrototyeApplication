@@ -2030,7 +2030,7 @@ ui <- page_navbar(
   
   
   # -- TAB 2: GALLERY ------------------------------------------------------
-  # Displays all Bierstadt paintings as clickable cards. Clicking opens a
+  # Displays all paintings as clickable cards. Clicking opens a
   # fullscreen lightbox with a Ken Burns zoom animation.
   nav_panel(
     title = "Gallery",
