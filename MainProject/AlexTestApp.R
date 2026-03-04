@@ -811,28 +811,48 @@ body {
   color: var(--text-primary);
 }
 
-/* Map Legend */
-.map-legend {
+/* Map Filter Bar */
+.map-filter-bar {
   display: flex;
-  gap: 24px;
+  gap: 8px;
   justify-content: center;
   margin-bottom: 24px;
 }
 
-.legend-item {
-  display: flex;
+.map-filter-btn {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
+  padding: 8px 20px;
+  border-radius: 50px;
+  cursor: pointer;
+  border: 1px solid var(--glass-border-subtle);
+  background: var(--glass-bg-light);
+  transition: all 0.3s var(--ease);
+}
+
+.map-filter-btn:hover {
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  color: var(--text-primary);
+}
+
+.map-filter-btn.active {
+  background: var(--glass-bg-strong);
+  border-color: var(--terra);
+  color: var(--text-primary);
+  box-shadow: 0 0 12px var(--terra-glow);
 }
 
 .legend-dot {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.2);
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .legend-dot.red { background: var(--terra); }
@@ -1765,16 +1785,22 @@ ui <- page_navbar(
              tags$div(class = "accent-line")
     ),
     
-    # Legend showing what each marker color means
-    # UPDATED: Added color legend above the map
-    tags$div(class = "map-legend",
-             tags$div(class = "legend-item",
-                      tags$div(class = "legend-dot red"),
-                      "Bierstadt Paintings"
+    # Map filter buttons — let users toggle which markers are visible.
+    # "All" shows both, "Paintings" shows only red, "Submissions" shows only blue.
+    tags$div(class = "map-filter-bar",
+             tags$div(class = "map-filter-btn active", id = "map_filter_all",
+                      onclick = "Shiny.setInputValue('set_map_filter', 'all');",
+                      "All"
              ),
-             tags$div(class = "legend-item",
-                      tags$div(class = "legend-dot blue"),
-                      "Community Submissions"
+             tags$div(class = "map-filter-btn", id = "map_filter_paintings",
+                      onclick = "Shiny.setInputValue('set_map_filter', 'paintings');",
+                      tags$span(class = "legend-dot red"),
+                      "Paintings"
+             ),
+             tags$div(class = "map-filter-btn", id = "map_filter_submissions",
+                      onclick = "Shiny.setInputValue('set_map_filter', 'submissions');",
+                      tags$span(class = "legend-dot blue"),
+                      "Submissions"
              )
     ),
     
@@ -2135,7 +2161,8 @@ server <- function(input, output, session) {
     approved_trigger = 0,
     selected_marker = NULL,   # stores the ID of the currently clicked map marker
     selected_type = NULL,     # "painting" or "submission" to distinguish marker types
-    filter_painting_id = NULL # when set, the Compare tab only shows comparisons for this painting
+    filter_painting_id = NULL, # when set, the Compare tab only shows comparisons for this painting
+    map_filter = "all"        # controls which markers are visible: "all", "paintings", or "submissions"
   )
   
   # UPDATED: Tracks which basemap is currently displayed to avoid unnecessary redraws
@@ -2279,22 +2306,38 @@ server <- function(input, output, session) {
   # Clicking a marker updates the info panel on the right side of the layout.
   
   output$main_map <- renderLeaflet({
+    # Base map only — markers are added reactively via leafletProxy
+    # so they can be toggled by the filter buttons.
     leaflet() %>%
       addProviderTiles(providers$CartoDB.Positron, group = "minimal") %>%
-      # UPDATED: Added group = "minimal" so tiles can be swapped on zoom.
-      # CartoDB.Positron provides a cleaner, modern base map
-      
-      addCircleMarkers(
+      setView(lng = -98.5, lat = 39.8, zoom = 4)
+  })
+  
+  # -- MAP MARKER OBSERVER ---------------------------------------------------
+  # Reactively draws painting markers (red) and submission markers (blue)
+  # based on rv$map_filter. Uses leafletProxy to add/remove markers without
+  # re-rendering the entire map.
+  observe({
+    approved <- rv$approved
+    rv$approved_trigger
+    filter <- rv$map_filter
+    
+    proxy <- leafletProxy("main_map")
+    
+    # -- PAINTING MARKERS (red) --
+    proxy %>% clearGroup("paintings")
+    if (filter %in% c("all", "paintings")) {
+      proxy %>% addCircleMarkers(
         data = paintings_data,
         lng = ~longitude, lat = ~latitude,
         radius = 10,
-        color = "#A85D3F",        # terra-dark border
-        fillColor = "#C2714F",    # terra fill (red circles)
+        color = "#A85D3F",
+        fillColor = "#C2714F",
         fillOpacity = 0.85,
         weight = 2,
         stroke = TRUE,
+        group = "paintings",
         layerId = ~paste0("painting_", id),
-        # layerId uniquely identifies each marker so we can detect clicks
         label = ~title,
         labelOptions = labelOptions(
           style = list("font-weight" = "600", "font-family" = "DM Sans, sans-serif"),
@@ -2302,24 +2345,12 @@ server <- function(input, output, session) {
           direction = "top",
           offset = c(0, -12)
         )
-      ) %>%
-      
-      # UPDATED: setView centers on the US at zoom 4 instead of fitBounds
-      setView(lng = -98.5, lat = 39.8, zoom = 4)
-  })
-  
-  # -- SUBMISSION MARKERS (BLUE CIRCLES) (UPDATED) ----------------------------
-  # UPDATED: New observe() block that reactively adds/updates blue circle
-  # markers on the map for approved community submissions.
-  # Uses leafletProxy() to add markers without re-rendering the entire map.
-  observe({
-    approved <- rv$approved
-    rv$approved_trigger
+      )
+    }
     
-    proxy <- leafletProxy("main_map")
+    # -- SUBMISSION MARKERS (blue) --
     proxy %>% clearGroup("submissions")
-    
-    if (nrow(approved) > 0) {
+    if (filter %in% c("all", "submissions") && nrow(approved) > 0) {
       valid_subs <- approved[!is.na(approved$latitude) & !is.na(approved$longitude), ]
       if (nrow(valid_subs) > 0) {
         valid_subs$painting_title <- sapply(valid_subs$painting_id, function(pid) {
@@ -2331,8 +2362,8 @@ server <- function(input, output, session) {
           data = valid_subs,
           lng = ~longitude, lat = ~latitude,
           radius = 8,
-          color = "#2563EB",        # blue border
-          fillColor = "#3B82F6",    # blue fill
+          color = "#2563EB",
+          fillColor = "#3B82F6",
           fillOpacity = 0.85,
           weight = 2,
           stroke = TRUE,
@@ -2347,6 +2378,22 @@ server <- function(input, output, session) {
           )
         )
       }
+    }
+  })
+  
+  # -- MAP FILTER TOGGLE -----------------------------------------------------
+  # Handles clicks on the filter buttons above the map.
+  # Updates rv$map_filter which triggers the marker observer to redraw,
+  # and sends JS to swap the active class on the buttons.
+  observeEvent(input$set_map_filter, {
+    new_filter <- input$set_map_filter
+    if (new_filter %in% c("all", "paintings", "submissions")) {
+      rv$map_filter <- new_filter
+      # Update the active button styling via JS
+      shinyjs::runjs(sprintf("
+        document.querySelectorAll('.map-filter-btn').forEach(function(btn) { btn.classList.remove('active'); });
+        document.getElementById('map_filter_%s').classList.add('active');
+      ", new_filter))
     }
   })
   
