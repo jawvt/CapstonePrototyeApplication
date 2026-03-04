@@ -1044,6 +1044,24 @@ body {
   border: 1px solid var(--glass-border-subtle);
 }
 
+/* Submitter name badge in top-left of comparison thumbnails */
+.comparison-thumb-submitter {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  background: rgba(15, 26, 20, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border-subtle);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+}
+
 .no-comparisons {
   text-align: center;
   padding: 80px 24px;
@@ -2642,6 +2660,8 @@ server <- function(input, output, session) {
       
       tags$div(class = "comparison-thumb",
                onclick = sprintf("openComparisonLightbox('%s', '%s')", painting$image_url, sub$photo_url),
+               tags$div(class = "comparison-thumb-submitter", sub$name),
+               # Submitter's name shown in the top-left corner of the thumbnail.
                tags$img(src = painting$image_url, alt = painting$title),
                tags$div(class = "comparison-thumb-overlay",
                         tags$div(class = "comparison-thumb-label", HTML("&#8644; Compare"))
