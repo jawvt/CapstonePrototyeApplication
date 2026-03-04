@@ -11,7 +11,9 @@
 # 
 #
 ############################################
-
+install.packages(c("DBI", "RPostgres"))
+library(DBI)
+library(RPostgres)
 library(shiny)
 library(bslib)
 library(leaflet)
@@ -1832,7 +1834,7 @@ ui <- page_navbar(
   # A form where visitors upload a modern photo from a Bierstadt location.
   # They can optionally add their name, email, GPS coordinates, and observations.
   nav_panel(
-    title = "Submit",
+    title = "Contribute",
     icon = icon("camera"),
     
     tags$div(class = "section-header",
