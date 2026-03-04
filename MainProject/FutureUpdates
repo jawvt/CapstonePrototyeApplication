@@ -1,12 +1,9 @@
 Future Updates to application
-
-JP wants to see more ways to get to the user submit form (gallery, map point locations)
+############################################
 
 Backend for database and user data collection 
 
 Make BPaintings.csv dynamic
-
-See multiple submissions from same painting?
 
 Remove homepage?
 
@@ -14,4 +11,4 @@ Make the app more iphone accessible
 
 add filter option on map
 
-xxxxxxxxxxxx
+Make map comparison button filter the same as the gallery filter button
