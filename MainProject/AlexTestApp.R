@@ -19,7 +19,7 @@ library(bslib)
 library(leaflet)
 library(htmltools)
 library(DT)
-library(shinyjs)
+library(shinyjs)q
 
 ############################################
 # User Inupt Data Storage
@@ -62,7 +62,7 @@ save_data <- function(data, file_path) saveRDS(data, file_path)
 # How can we make this dynamic?
 ############################################
 
-paintings_csv <- "/Users/jawvt/Documents/Capstone/CapstonePrototyeApplication/MainProject/BPaintings.csv"
+paintings_csv <- "BPaintings.csv"
 paintings_data <- read.csv(paintings_csv, stringsAsFactors = FALSE)
 
 ############################################
