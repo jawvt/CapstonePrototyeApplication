@@ -62,6 +62,8 @@ save_data <- function(data, file_path) saveRDS(data, file_path)
 
 paintings_csv <- "BPaintings.csv"
 paintings_data <- read.csv(paintings_csv, stringsAsFactors = FALSE)
+#location_data <- read.csv(paintings_csv) %>% 
+#  select(museum)
 
 ############################################
 # Custom CSS
@@ -1801,6 +1803,11 @@ ui <- page_navbar(
                       onclick = "Shiny.setInputValue('set_map_filter', 'submissions');",
                       tags$span(class = "legend-dot blue"),
                       "Submissions"
+             ),
+             tags$div(class = "map-filter-btn", id = "map_filter_real_locations",
+                      onclick = "Shiny.setInputValue('set_map_filter', 'real_life_locations');",
+                      tags$span(class = "legend-dot orange"),
+                      "Real Life Locations"
              )
     ),
     
@@ -1827,23 +1834,8 @@ ui <- page_navbar(
     )
   ),
   
-  # -- TAB 4: MAP - ACTUAL PAINTING LOCATIONS ------------------------------
-  # UPDATED: Split layout with map on the left and an info panel on the right.
-  # Red circle markers for paintings, blue circles for user submissions.
-  # Clicking any marker populates the info panel with details.
-  nav_panel(
-    title = "Map",
-    icon = icon("map-location-dot"),
-    
-    tags$div(class = "section-header",
-             tags$h2("Explore Locations"),
-             tags$p("See where paintings are located right now. Click a marker for details."),
-             tags$div(class = "accent-line")
-    ),
-  ),
   
-  
-  # -- TAB 5: SUBMIT ------------------------------------------------------
+  # -- TAB 4: SUBMIT ------------------------------------------------------
   # A form where visitors upload a modern photo from a Bierstadt location.
   # They can optionally add their name, email, GPS coordinates, and observations.
   nav_panel(
@@ -1924,7 +1916,7 @@ ui <- page_navbar(
   ),
   
   
-  # -- TAB 6: COMPARE ----------------------------------------------------
+  # -- TAB 5: COMPARE ----------------------------------------------------
   # Shows a grid of approved submissions as thumbnails. Clicking one opens
   # a side-by-side lightbox comparing the original painting with the modern photo.
   nav_panel(
@@ -2393,6 +2385,30 @@ server <- function(input, output, session) {
           )
         )
       }
+    }
+    
+    # -- LOCATION MARKERS (orange) --
+    proxy %>% clearGroup("real_life_locations")
+    if (filter %in% c("all", "real_life_locations")) {
+      proxy %>% addCircleMarkers(
+        data = paintings_data,
+        lng = ~longitude, lat = ~latitude,
+        radius = 10,
+        color = "#A85D3F",
+        fillColor = "#C2714F",
+        fillOpacity = 0.85,
+        weight = 2,
+        stroke = TRUE,
+        group = "real_life_locations",
+        layerId = ~paste0("real_life_location_", id),
+        label = ~title,
+        labelOptions = labelOptions(
+          style = list("font-weight" = "600", "font-family" = "DM Sans, sans-serif"),
+          textsize = "13px",
+          direction = "top",
+          offset = c(0, -12)
+        )
+      )
     }
   })
   
