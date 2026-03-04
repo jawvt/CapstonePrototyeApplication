@@ -1721,7 +1721,7 @@ ui <- page_navbar(
                       # The <span> around "Time" gets a gradient color treatment via CSS.
                       
                       tags$p(class = "hero-subtitle",
-                             "Explore Albert Bierstadt's iconic paintings."
+                             "Explore the U.S.A's iconic paintings."
                       ),
                       # Subtitle/description text below the main title.
                       
@@ -1749,7 +1749,7 @@ ui <- page_navbar(
   
   
   # -- TAB 2: GALLERY ------------------------------------------------------
-  # Displays all Bierstadt paintings as clickable cards. Clicking opens a
+  # Displays paintings as clickable cards. Clicking opens a
   # fullscreen lightbox with a Ken Burns zoom animation.
   nav_panel(
     title = "Gallery",
@@ -1773,7 +1773,7 @@ ui <- page_navbar(
   
   # -- TAB 3: MAP ----------------------------------------------------------
   # UPDATED: Split layout with map on the left and an info panel on the right.
-  # Red circle markers for Bierstadt paintings, blue circles for user submissions.
+  # Red circle markers for paintings, blue circles for user submissions.
   # Clicking any marker populates the info panel with details.
   nav_panel(
     title = "Map",
@@ -1781,7 +1781,7 @@ ui <- page_navbar(
     
     tags$div(class = "section-header",
              tags$h2("Explore Locations"),
-             tags$p("See where Bierstadt set up his easel across America. Click a marker for details."),
+             tags$p("See where painters found their inspiration across America. Click a marker for details."),
              tags$div(class = "accent-line")
     ),
     
@@ -1827,8 +1827,23 @@ ui <- page_navbar(
     )
   ),
   
+  # -- TAB 4: MAP - ACTUAL PAINTING LOCATIONS ------------------------------
+  # UPDATED: Split layout with map on the left and an info panel on the right.
+  # Red circle markers for paintings, blue circles for user submissions.
+  # Clicking any marker populates the info panel with details.
+  nav_panel(
+    title = "Map",
+    icon = icon("map-location-dot"),
+    
+    tags$div(class = "section-header",
+             tags$h2("Explore Locations"),
+             tags$p("See where paintings are located right now. Click a marker for details."),
+             tags$div(class = "accent-line")
+    ),
+  ),
   
-  # -- TAB 4: SUBMIT ------------------------------------------------------
+  
+  # -- TAB 5: SUBMIT ------------------------------------------------------
   # A form where visitors upload a modern photo from a Bierstadt location.
   # They can optionally add their name, email, GPS coordinates, and observations.
   nav_panel(
@@ -1909,7 +1924,7 @@ ui <- page_navbar(
   ),
   
   
-  # -- TAB 5: COMPARE ----------------------------------------------------
+  # -- TAB 6: COMPARE ----------------------------------------------------
   # Shows a grid of approved submissions as thumbnails. Clicking one opens
   # a side-by-side lightbox comparing the original painting with the modern photo.
   nav_panel(
