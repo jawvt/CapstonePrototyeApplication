@@ -612,6 +612,8 @@ body {
   box-shadow: var(--shadow-glass);
   transition: all 0.4s var(--ease);
   transform-style: preserve-3d;
+  display: flex;
+  flex-direction: column;
 }
 
 .painting-card:hover {
@@ -668,6 +670,9 @@ body {
 
 .painting-info {
   padding: 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .painting-title {
@@ -697,7 +702,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 14px;
+  margin-top: auto;
+  padding-top: 14px;
   gap: 10px;
 }
 
@@ -921,6 +927,15 @@ body {
 
 .legend-dot.red { background: var(--terra); }
 .legend-dot.blue { background: #60A5FA; }
+
+/* Locate Me button */
+.locate-me-btn.tracking {
+  border-color: #34D399 !important;
+  color: #34D399 !important;
+  background: rgba(52, 211, 153, 0.12) !important;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.3);
+}
+
 
 /* Submission info extras */
 .map-info-observations {
@@ -1758,85 +1773,8 @@ ui <- page_navbar(
   ),
   
   
-  # -- TAB 1: HOME ----------------------------------------------------------
-  # The landing/hero page with a large banner, a tagline, two call-to-action
-  # buttons, and a stats strip showing live submission counts.
-  nav_panel(
-    title = "Home",
-    icon = icon("mountain-sun"),
-    # icon() uses Font Awesome icons. "mountain-sun" shows a mountain with sun icon.
-    
-    tags$div(class = "hero-banner",
-             # A full-screen banner section styled with the CSS class "hero-banner".
-             
-             tags$div(class = "hero-bg-pattern"),
-             # A decorative dot pattern layered behind the content (pure CSS, no content).
-             
-             tags$div(class = "hero-glow hero-glow-1"),
-             tags$div(class = "hero-glow hero-glow-2"),
-             tags$div(class = "hero-glow hero-glow-3"),
-             # Three decorative colored blurs (glows) for visual depth. Pure CSS effects.
-             
-             tags$div(class = "hero-inner",
-                      # The centered content area inside the banner.
-                      
-                      tags$h1(class = "hero-title", HTML("Landscape<br>Through Time")),
-                      # The main title. HTML() lets us use raw HTML tags like <br> and <span>.
-                      # The <span> around "Time" gets a gradient color treatment via CSS.
-                      
-                      tags$p(class = "hero-subtitle",
-                             "Explore Albert Bierstadt's iconic paintings."
-                      ),
-                      # Subtitle/description text below the main title.
-                      
-                      tags$div(class = "hero-actions",
-                               actionButton("go_gallery", HTML("View the Collection &rarr;"), class = "btn-terra"),
-                               # A button with ID "go_gallery". When clicked, the server detects
-                               # input$go_gallery and navigates to the Gallery tab.
-                               # &rarr; is the HTML code for a right arrow '.
-                               
-                               actionButton("go_submit", "Contribute a Photo", class = "btn-sage")
-                               # A second button that navigates to the Submit tab.
-                      ),
-                      
-                      tags$div(class = "stats-strip",
-                               # Single stat showing the number of paintings in the collection.
-                               
-                               tags$div(class = "stat-item",
-                                        tags$div(class = "stat-value", as.character(nrow(paintings_data))),
-                                        tags$div(class = "stat-label", "Paintings")
-                               )
-                      )
-             )
-    )
-  ),
-  
-  
-  # -- TAB 2: GALLERY ------------------------------------------------------
-  # Displays all Bierstadt paintings as clickable cards. Clicking opens a
-  # fullscreen lightbox with a Ken Burns zoom animation.
-  nav_panel(
-    title = "Gallery",
-    icon = icon("images"),
-    
-    tags$div(class = "section-header",
-             tags$h2("The Collection"),
-             tags$div(class = "accent-line")
-             # accent-line is a small decorative horizontal line rendered via CSS.
-    ),
-    
-    tags$div(class = "gallery-wrap",
-             tags$div(id = "paintings-container", class = "paintings-grid",
-                      uiOutput("painting_cards")
-                      # uiOutput() is a placeholder that gets filled in by the server.
-                      # The server generates each painting card dynamically from the CSV data.
-             )
-    )
-  ),
-  
-  
-  # -- TAB 3: MAP ----------------------------------------------------------
-  # UPDATED: Split layout with map on the left and an info panel on the right.
+  # -- TAB 1: MAP ----------------------------------------------------------
+  # Split layout with map on the left and an info panel on the right.
   # Red circle markers for Bierstadt paintings, blue circles for user submissions.
   # Clicking any marker populates the info panel with details.
   nav_panel(
@@ -1865,28 +1803,43 @@ ui <- page_navbar(
                       onclick = "Shiny.setInputValue('set_map_filter', 'submissions');",
                       tags$span(class = "legend-dot blue"),
                       "Submissions"
+             ),
+             tags$div(class = "map-filter-btn locate-me-btn", id = "locate_me_btn",
+                      onclick = "startGeolocation();",
+                      HTML("&#9678; My Location")
              )
     ),
     
-    # UPDATED: Two-column grid layout -- map on left, info panel on right.
-    # Uses CSS class .map-split-layout for the grid.
+    # Two-column grid layout -- map on left, info panel on right.
     tags$div(class = "map-split-layout",
              
              # LEFT: Interactive Leaflet map
              tags$div(class = "map-container",
                       leafletOutput("main_map", height = "100%")
-                      # leafletOutput() is the placeholder for the interactive map.
-                      # The actual map is rendered by the server using renderLeaflet().
-                      # height = "100%" makes it fill the map-container div.
              ),
              
              # RIGHT: Info panel -- populated when a marker is clicked
-             # UPDATED: New panel that shows painting/submission details
              tags$div(class = "map-info-panel",
                       uiOutput("map_info_content")
-                      # uiOutput() is a placeholder filled by the server.
-                      # Shows a placeholder message until a marker is clicked,
-                      # then displays the title, image, coordinates, and context.
+             )
+    )
+  ),
+  
+  
+  # -- TAB 2: GALLERY ------------------------------------------------------
+  # Displays all Bierstadt paintings as clickable cards.
+  nav_panel(
+    title = "Gallery",
+    icon = icon("images"),
+    
+    tags$div(class = "section-header",
+             tags$h2("The Collection"),
+             tags$div(class = "accent-line")
+    ),
+    
+    tags$div(class = "gallery-wrap",
+             tags$div(id = "paintings-container", class = "paintings-grid",
+                      uiOutput("painting_cards")
              )
     )
   ),
@@ -2183,6 +2136,53 @@ ui <- page_navbar(
         if (tabLink) tabLink.click();
       });
 
+      // -- LIVE GEOLOCATION ------------------------------------------------
+      // Uses the browser Geolocation API with watchPosition to continuously
+      // track the user and send lat/lng updates to Shiny.
+      var geoWatchId = null;
+
+      window.startGeolocation = function() {
+        var btn = document.getElementById('locate_me_btn');
+
+        // If already tracking, stop
+        if (geoWatchId !== null) {
+          navigator.geolocation.clearWatch(geoWatchId);
+          geoWatchId = null;
+          btn.classList.remove('tracking');
+          Shiny.setInputValue('user_location', null);
+          return;
+        }
+
+        if (!navigator.geolocation) {
+          alert('Geolocation is not supported by your browser.');
+          return;
+        }
+
+        btn.classList.add('tracking');
+
+        geoWatchId = navigator.geolocation.watchPosition(
+          function(pos) {
+            Shiny.setInputValue('user_location', {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              acc: pos.coords.accuracy,
+              t: Date.now()
+            });
+          },
+          function(err) {
+            console.warn('Geolocation error:', err.message);
+            btn.classList.remove('tracking');
+            geoWatchId = null;
+            if (err.code === 1) {
+              alert('Location access was denied. Please allow location access in your browser settings.');
+            } else {
+              alert('Unable to retrieve your location.');
+            }
+          },
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+        );
+      };
+
       // -- LEAFLET MAP FIX ----------------------------------------------
       // Leaflet maps don't render correctly when inside a hidden tab because
       // they calculate their size when the tab isn't visible yet (size = 0).
@@ -2233,19 +2233,6 @@ server <- function(input, output, session) {
   # UPDATED: Tracks which basemap is currently displayed to avoid unnecessary redraws
   current_basemap <- reactiveVal("minimal")
   
-  
-  # -- HERO BUTTON NAVIGATION ----------------------------------------------
-  # These two blocks listen for clicks on the hero buttons and tell the browser
-  # to switch to the appropriate tab using a custom JavaScript message.
-  observeEvent(input$go_gallery, {
-    # observeEvent() runs its code block whenever the specified input changes/fires.
-    # input$go_gallery is triggered when the "View the Collection" button is clicked.
-    session$sendCustomMessage("switchTab", "Gallery")
-    # Sends a message to the JS handler named "switchTab", passing "Gallery" as the value.
-  })
-  observeEvent(input$go_submit, {
-    session$sendCustomMessage("switchTab", "Submit")
-  })
   
   # -- GALLERY / MAP "VIEW COMPARISONS" NAVIGATION ---------------------------
   # When a "View Comparisons" link is clicked from a gallery card or map panel,
@@ -2460,6 +2447,56 @@ server <- function(input, output, session) {
         document.getElementById('map_filter_%s').classList.add('active');
       ", new_filter))
     }
+  })
+  
+  # -- USER LIVE LOCATION MARKER --------------------------------------------
+  # Draws a pulsing blue dot on the map at the user's current GPS position.
+  # Uses a custom divIcon with CSS animation. The watchPosition JS sends
+  # updated coordinates continuously, and this observer redraws the marker.
+  observeEvent(input$user_location, {
+    loc <- input$user_location
+    proxy <- leafletProxy("main_map")
+    
+    if (is.null(loc)) {
+      # User toggled tracking off — remove the marker
+      proxy %>% clearGroup("user_location")
+      return()
+    }
+    
+    proxy %>%
+      clearGroup("user_location") %>%
+      addMarkers(
+        lng = loc$lng, lat = loc$lat,
+        group = "user_location",
+        icon = makeIcon(
+          iconUrl = NULL,
+          iconWidth = 18, iconHeight = 18,
+          iconAnchorX = 9, iconAnchorY = 9
+        ),
+        options = markerOptions(interactive = FALSE)
+      )
+    
+    # Replace the default marker with a pulsing custom div via JS
+    shinyjs::runjs("
+      (function() {
+        var markers = document.querySelectorAll('.leaflet-marker-icon');
+        // Find the user location marker (last added, no src)
+        for (var i = markers.length - 1; i >= 0; i--) {
+          var m = markers[i];
+          if (!m.src || m.src === '' || m.src === window.location.href) {
+            m.style.background = 'none';
+            m.style.border = 'none';
+            m.style.boxShadow = 'none';
+            m.style.width = '40px';
+            m.style.height = '40px';
+            m.style.marginLeft = '-20px';
+            m.style.marginTop = '-20px';
+            m.innerHTML = '<div class=\"user-location-pulse\"><div class=\"ring\"></div><div class=\"dot\"></div></div>';
+            break;
+          }
+        }
+      })();
+    ")
   })
   
   # -- MARKER CLICK -> INFO PANEL (UPDATED) ----------------------------------
