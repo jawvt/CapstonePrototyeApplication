@@ -2285,6 +2285,16 @@ server <- function(input, output, session) {
     rv$filter_painting_id <- NULL
   })
   
+  # -- CONTRIBUTE BUTTON FROM GALLERY CARD ----------------------------------
+  # When "+ Contribute" is clicked on a gallery card, pre-select that painting
+  # in the Submit form dropdown and navigate to the Contribute tab.
+  observeEvent(input$contribute_for_painting, {
+    val <- input$contribute_for_painting
+    if (!is.null(val$id)) {
+      updateSelectInput(session, "submit_painting", selected = as.character(val$id))
+    }
+    session$sendCustomMessage("switchTab", "Contribute")
+  })
   
   # -- STATS DISPLAY --------------------------------------------------------
   # These render the live submission counts shown in the hero stats strip.
@@ -2302,7 +2312,6 @@ server <- function(input, output, session) {
   # when approved comparisons exist for that painting.
   output$painting_cards <- renderUI({
     
-    # Count ALL submissions per painting_id.
     all_subs <- rv$submissions
     sub_counts <- if (nrow(all_subs) > 0) {
       as.data.frame(table(all_subs$painting_id), stringsAsFactors = FALSE)
@@ -2331,7 +2340,6 @@ server <- function(input, output, session) {
       approved_count <- if (length(approved_match) > 0) approved_match[1] else 0
       
       tags$div(class = "painting-card",
-               # No onclick -- the painting lightbox has been removed.
                
                tags$div(class = "painting-card-img-wrap",
                         tags$img(src = p$image_url, class = "painting-image", alt = p$title),
@@ -2342,21 +2350,26 @@ server <- function(input, output, session) {
                         tags$h3(class = "painting-title", p$title),
                         tags$div(class = "painting-meta", paste0(p$artist)),
                         tags$p(class = "painting-context", p$context),
-                        # Footer row: comparison count on left, view link on right
                         tags$div(class = "painting-card-footer",
                                  tags$div(class = "submission-count-badge",
                                           paste0(approved_count, " comparison", ifelse(approved_count != 1, "s", ""))
                                  ),
-                                 # Only show the "View Comparison(s)" link when approved comparisons exist.
-                                 if (approved_count > 0) {
-                                   tags$div(class = "painting-card-cta",
-                                            onclick = sprintf("event.stopPropagation(); Shiny.setInputValue('go_compare_painting', {id: %d, t: Date.now()});", p$id),
-                                            # Sends an object with the painting ID and a timestamp.
-                                            # The timestamp ensures Shiny treats every click as a new value,
-                                            # even when clicking the same card twice in a row.
-                                            HTML(paste0("View Comparison", ifelse(approved_count != 1, "s", ""), " &rarr;"))
-                                   )
-                                 }
+                                 tags$div(style = "display: flex; align-items: center; gap: 12px;",
+                                          if (approved_count > 0) {
+                                            tags$div(class = "painting-card-cta",
+                                                     onclick = sprintf("event.stopPropagation(); Shiny.setInputValue('go_compare_painting', {id: %d, t: Date.now()});", p$id),
+                                                     HTML(paste0("View Comparison", ifelse(approved_count != 1, "s", ""), " &rarr;"))
+                                            )
+                                          },
+                                          tags$div(class = "painting-card-cta",
+                                                   style = "color: var(--sage-light);",
+                                                   onclick = sprintf(
+                                                     "event.stopPropagation(); Shiny.setInputValue('contribute_for_painting', {id: %d, t: Date.now()});",
+                                                     p$id
+                                                   ),
+                                                   HTML("&#43; Contribute")
+                                          )
+                                 )
                         )
                )
       )
