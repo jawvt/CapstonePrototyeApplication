@@ -2323,7 +2323,7 @@ server <- function(input, output, session) {
                
                tags$div(class = "painting-info",
                         tags$h3(class = "painting-title", p$title),
-                        tags$div(class = "painting-meta", paste0(p$artist, " \u2022 ", p$year)),
+                        tags$div(class = "painting-meta", paste0(p$artist)),
                         tags$p(class = "painting-context", p$context),
                         # Footer row: comparison count on left, view link on right
                         tags$div(class = "painting-card-footer",
@@ -2519,7 +2519,12 @@ server <- function(input, output, session) {
       rv$selected_marker <- sid
       rv$selected_type <- "submission"
     }
+    
+    leafletProxy("main_map") %>%
+      flyTo(lng = click$lng, lat = click$lat, zoom = max(input$main_map_zoom, 8))
   })
+  
+  
   
   # -- INFO PANEL CONTENT (UPDATED) ------------------------------------------
   # UPDATED: New renderUI() that populates the right-side info panel.
