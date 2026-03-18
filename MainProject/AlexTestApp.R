@@ -2711,7 +2711,13 @@ server <- function(input, output, session) {
         ),
         tags$h3(class = "map-info-title", ifelse(!is.null(p$museum_name) && p$museum_name != "", p$museum_name, "Unknown Museum")),
         tags$div(class = "map-info-meta", paste0("Houses: ", p$title)),
-        tags$img(class = "map-info-image", src = p$image_url, alt = p$title),
+        tags$img(class = "map-info-image",
+                 src = if (!is.null(p$museum_image_url) && !is.na(p$museum_image_url) && p$museum_image_url != "") {
+                   p$museum_image_url
+                 } else {
+                   p$image_url
+                 },
+                 alt = ifelse(!is.null(p$museum_name) && !is.na(p$museum_name), p$museum_name, p$title)),
         tags$p(class = "map-info-context", paste0("This museum or collection currently holds \"", p$title, "\" by ", p$artist, " (", p$year, ").")),
         tags$div(class = "map-info-coords",
                  tags$div(class = "coord-box",
