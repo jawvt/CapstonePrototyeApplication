@@ -809,6 +809,7 @@ body {
 
 .map-info-dot.painting { background: var(--terra); box-shadow: 0 0 8px var(--terra-glow); }
 .map-info-dot.submission { background: #60A5FA; box-shadow: 0 0 8px rgba(96,165,250,0.4); }
+.map-info-dot.museum { background: #DC3545; box-shadow: 0 0 8px rgba(220,53,69,0.4); }
 
 .map-info-type-label {
   font-size: 11px;
@@ -979,6 +980,16 @@ body {
   background: rgba(232, 151, 107, 0.15);
   transform: translateY(-2px);
   box-shadow: 0 4px 16px var(--terra-glow);
+}
+
+.map-info-cta.museum {
+  border-color: #DC3545;
+  color: #E25563;
+}
+
+.map-info-cta.museum:hover {
+  background: rgba(220, 53, 69, 0.15);
+  box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
 }
 
 /* Responsive override for map layout */
@@ -1804,6 +1815,12 @@ ui <- page_navbar(
                       tags$span(class = "legend-dot blue"),
                       "Submissions"
              ),
+             
+             tags$div(class = "map-filter-btn", id = "map_filter_museums",
+                      onclick = "Shiny.setInputValue('set_map_filter', 'museums');",
+                      tags$span(class = "legend-dot", style = "background: #DC3545;"),
+                      "Museums"
+             ),
              tags$div(class = "map-filter-btn locate-me-btn", id = "locate_me_btn",
                       onclick = "startGeolocation();",
                       HTML("&#9678; My Location")
@@ -2006,7 +2023,7 @@ ui <- page_navbar(
                         actionButton("approve_submission", "Approve Selected", class = "btn btn-approve"),
                         actionButton("reject_submission", "Reject Selected", class = "btn btn-reject"),
                         actionButton("delete_submission", "Delete Selected", class = "btn btn-reject",
-                                     style = "background: #8B0000; border-color: #8B0000; color: white;")
+                                     style = "background: #DC3545; border-color: #DC3545; color: white;")
                ),
                
                DTOutput("admin_table")
@@ -2382,7 +2399,7 @@ server <- function(input, output, session) {
       proxy %>% addCircleMarkers(
         data = paintings_data,
         lng = ~longitude, lat = ~latitude,
-        radius = 10,
+        radius = 8,
         color = "#A85D3F",
         fillColor = "#C2714F",
         fillOpacity = 0.85,
@@ -2431,6 +2448,33 @@ server <- function(input, output, session) {
         )
       }
     }
+    
+    # -- MUSEUM MARKERS (dark red) --
+    proxy %>% clearGroup("museums")
+    if (filter %in% c("all", "museums")) {
+      museum_data <- paintings_data[!is.na(paintings_data$museum_latitude) & !is.na(paintings_data$museum_longitude), ]
+      if (nrow(museum_data) > 0) {
+        proxy %>% addCircleMarkers(
+          data = museum_data,
+          lng = ~museum_longitude, lat = ~museum_latitude,
+          radius = 8,
+          color = "#DC3545",
+          fillColor = "#E25563",
+          fillOpacity = 0.85,
+          weight = 2,
+          stroke = TRUE,
+          group = "museums",
+          layerId = ~paste0("museum_", id),
+          label = ~paste0(title, " \u2014 ", museum_name),
+          labelOptions = labelOptions(
+            style = list("font-weight" = "600", "font-family" = "DM Sans, sans-serif"),
+            textsize = "13px",
+            direction = "top",
+            offset = c(0, -10)
+          )
+        )
+      }
+    }
   })
   
   # -- MAP FILTER TOGGLE -----------------------------------------------------
@@ -2439,7 +2483,7 @@ server <- function(input, output, session) {
   # and sends JS to swap the active class on the buttons.
   observeEvent(input$set_map_filter, {
     new_filter <- input$set_map_filter
-    if (new_filter %in% c("all", "paintings", "submissions")) {
+    if (new_filter %in% c("all", "paintings", "submissions", "museums")) {
       rv$map_filter <- new_filter
       # Update the active button styling via JS
       shinyjs::runjs(sprintf("
@@ -2518,6 +2562,10 @@ server <- function(input, output, session) {
       sid <- sub("submission_", "", marker_id)
       rv$selected_marker <- sid
       rv$selected_type <- "submission"
+    } else if (grepl("^museum_", marker_id)) {
+      pid <- as.integer(sub("museum_", "", marker_id))
+      rv$selected_marker <- pid
+      rv$selected_type <- "museum"
     }
     
     leafletProxy("main_map") %>%
@@ -2525,13 +2573,44 @@ server <- function(input, output, session) {
   })
   
   
+  # -- GO TO MUSEUM OBSERVER -------------------------------------------------
+  # When the user clicks "View Museum" in a painting's info panel, this flies
+  # the map to the museum marker and switches the info panel to museum mode.
+  observeEvent(input$go_to_museum, {
+    pid <- input$go_to_museum$id
+    if (is.null(pid)) return()
+    
+    p <- paintings_data[paintings_data$id == pid, ]
+    if (nrow(p) == 0) return()
+    p <- p[1, ]
+    
+    if (is.na(p$museum_latitude) || is.na(p$museum_longitude)) return()
+    
+    # Ensure museums are visible on the map
+    if (!rv$map_filter %in% c("all", "museums")) {
+      rv$map_filter <- "all"
+      shinyjs::runjs("
+        document.querySelectorAll('.map-filter-btn').forEach(function(btn) { btn.classList.remove('active'); });
+        document.getElementById('map_filter_all').classList.add('active');
+      ")
+    }
+    
+    # Switch info panel to museum mode for this painting
+    rv$selected_marker <- pid
+    rv$selected_type <- "museum"
+    
+    # Fly to the museum location
+    leafletProxy("main_map") %>%
+      flyTo(lng = p$museum_longitude, lat = p$museum_latitude, zoom = max(input$main_map_zoom, 8))
+  })
   
   # -- INFO PANEL CONTENT (UPDATED) ------------------------------------------
   # UPDATED: New renderUI() that populates the right-side info panel.
-  # Three states:
+  # Four states:
   #   1. No marker selected: shows a placeholder with instructions.
   #   2. Painting marker: shows title, artist, year, image, context, coords.
   #   3. Submission marker: shows painting title, submitter, photo, observations, coords.
+  #   4. Museum marker: shows museum name, painting housed there, image, coords.
   output$map_info_content <- renderUI({
     if (is.null(rv$selected_marker) || is.null(rv$selected_type)) {
       return(tags$div(class = "map-info-placeholder",
@@ -2563,6 +2642,14 @@ server <- function(input, output, session) {
           tags$div(class = "map-info-cta",
                    onclick = "Shiny.setInputValue('go_compare_painting', Math.random());",
                    HTML(paste0("View Comparison", ifelse(ap_count != 1, "s", ""), " &rarr;"))
+          )
+        },
+        # Show "View Museum" button if museum location exists for this painting
+        if (!is.null(p$museum_latitude) && !is.na(p$museum_latitude) &&
+            !is.null(p$museum_longitude) && !is.na(p$museum_longitude)) {
+          tags$div(class = "map-info-cta museum",
+                   onclick = sprintf("Shiny.setInputValue('go_to_museum', {id: %d, t: Date.now()});", p$id),
+                   HTML("View Museum &rarr;")
           )
         },
         tags$div(class = "map-info-coords",
@@ -2609,6 +2696,31 @@ server <- function(input, output, session) {
                  tags$div(class = "coord-box",
                           tags$div(class = "coord-label", "Longitude"),
                           tags$div(class = "coord-value", round(sub$longitude, 4))
+                 )
+        )
+      )
+    } else if (rv$selected_type == "museum") {
+      p <- paintings_data[paintings_data$id == rv$selected_marker, ]
+      if (nrow(p) == 0) return(NULL)
+      p <- p[1, ]
+      
+      tagList(
+        tags$div(class = "map-info-header",
+                 tags$div(class = "map-info-dot museum"),
+                 tags$span(class = "map-info-type-label", "Museum / Collection")
+        ),
+        tags$h3(class = "map-info-title", ifelse(!is.null(p$museum_name) && p$museum_name != "", p$museum_name, "Unknown Museum")),
+        tags$div(class = "map-info-meta", paste0("Houses: ", p$title)),
+        tags$img(class = "map-info-image", src = p$image_url, alt = p$title),
+        tags$p(class = "map-info-context", paste0("This museum or collection currently holds \"", p$title, "\" by ", p$artist, " (", p$year, ").")),
+        tags$div(class = "map-info-coords",
+                 tags$div(class = "coord-box",
+                          tags$div(class = "coord-label", "Latitude"),
+                          tags$div(class = "coord-value", round(p$museum_latitude, 4))
+                 ),
+                 tags$div(class = "coord-box",
+                          tags$div(class = "coord-label", "Longitude"),
+                          tags$div(class = "coord-value", round(p$museum_longitude, 4))
                  )
         )
       )
