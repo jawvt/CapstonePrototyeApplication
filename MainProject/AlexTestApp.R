@@ -2617,6 +2617,38 @@ server <- function(input, output, session) {
       flyTo(lng = p$museum_longitude, lat = p$museum_latitude, zoom = max(input$main_map_zoom, 8))
   })
   
+  # -- GO TO PAINTING OBSERVER -----------------------------------------------
+  # When the user clicks "View Painting" in a museum's info panel, this flies
+  # the map to the painting's landscape location and switches the info panel
+  # to painting mode. Mirror of the go_to_museum observer above.
+  observeEvent(input$go_to_painting, {
+    pid <- input$go_to_painting$id
+    if (is.null(pid)) return()
+    
+    p <- paintings_data[paintings_data$id == pid, ]
+    if (nrow(p) == 0) return()
+    p <- p[1, ]
+    
+    if (is.na(p$latitude) || is.na(p$longitude)) return()
+    
+    # Ensure paintings are visible on the map
+    if (!rv$map_filter %in% c("all", "paintings")) {
+      rv$map_filter <- "all"
+      shinyjs::runjs("
+        document.querySelectorAll('.map-filter-btn').forEach(function(btn) { btn.classList.remove('active'); });
+        document.getElementById('map_filter_all').classList.add('active');
+      ")
+    }
+    
+    # Switch info panel to painting mode
+    rv$selected_marker <- pid
+    rv$selected_type <- "painting"
+    
+    # Fly to the painting's landscape location
+    leafletProxy("main_map") %>%
+      flyTo(lng = p$longitude, lat = p$latitude, zoom = max(input$main_map_zoom, 8))
+  })
+  
   # -- INFO PANEL CONTENT (UPDATED) ------------------------------------------
   # UPDATED: New renderUI() that populates the right-side info panel.
   # Four states:
@@ -2732,6 +2764,11 @@ server <- function(input, output, session) {
                  },
                  alt = ifelse(!is.null(p$museum_name) && !is.na(p$museum_name), p$museum_name, p$title)),
         tags$p(class = "map-info-context", paste0("This museum or collection currently holds \"", p$title, "\" by ", p$artist, " (", p$year, ").")),
+        # "View Painting" button — flies map to the painting's landscape location
+        tags$div(class = "map-info-cta museum",
+                 onclick = sprintf("Shiny.setInputValue('go_to_painting', {id: %d, t: Date.now()});", p$id),
+                 HTML("View Painting &rarr;")
+        ),
         tags$div(class = "map-info-coords",
                  tags$div(class = "coord-box",
                           tags$div(class = "coord-label", "Latitude"),
