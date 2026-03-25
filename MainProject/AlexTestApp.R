@@ -1894,12 +1894,58 @@ ui <- page_navbar(
                       ),
                       
                       tags$div(class = "form-group",
-                               selectInput("submit_painting", "Which location did you visit?",
-                                           choices = c("Select a location..." = "", setNames(paintings_data$id, paintings_data$title)))
-                               # selectInput() creates a dropdown menu.
-                               # setNames(paintings_data$id, paintings_data$title) pairs each painting's
-                               # ID (the value sent to the server) with its title (the text shown to users).
-                               # The empty string -- is the default "please select" option.
+                               radioButtons(
+                                 inputId = "submit_source_type",
+                                 label = "Where are you uploading this photo from?",
+                                 choices = c(
+                                   "I visited the actual painting location (in the field)" = "field",
+                                   "I took this photo in a museum (of the painting itself)" = "museum"
+                                 ),
+                                 selected = NULL,
+                                 inline = FALSE
+                               )
+                      ),
+                      
+                      # === Conditional: Painting Site (Field Location) ===
+                      conditionalPanel(
+                        condition = "input.submit_source_type == 'field'",
+                        tags$div(class = "form-group",
+                                 selectInput(
+                                   "submit_painting",
+                                   "Which Bierstadt painting location did you visit?",
+                                   choices = c("Select a location..." = "", 
+                                               setNames(paintings_data$id, paintings_data$title))
+                                 )
+                        )
+                      ),
+                      
+                      # === Conditional: Museum ===
+                      conditionalPanel(
+                        condition = "input.submit_source_type == 'museum'",
+                        tags$div(class = "form-group",
+                                 selectInput(
+                                   "submit_museum",
+                                   "Which museum did you visit?",
+                                   choices = c(
+                                     "Select a museum..." = "",
+                                     "Metropolitan Museum of Art (New York)" = "met",
+                                     "National Gallery of Art (Washington, D.C.)" = "nga",
+                                     "Smithsonian American Art Museum" = "saam",
+                                     "Denver Art Museum" = "denver",
+                                     "Museum of Fine Arts, Boston" = "mfa_boston",
+                                     "Other (please specify below)" = "other"
+                                   )
+                                 )
+                        )
+                      ),
+                      
+                      # Optional: If user selects "Other" museum, show a text field
+                      conditionalPanel(
+                        condition = "input.submit_source_type == 'museum' && input.submit_museum == 'other'",
+                        tags$div(class = "form-group",
+                                 textInput("submit_museum_other", "Please specify the museum name", 
+                                           placeholder = "e.g. Yale University Art Gallery")
+                        )
                       ),
                       
                       tags$div(class = "form-group",
