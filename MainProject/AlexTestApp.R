@@ -1873,7 +1873,7 @@ ui <- page_navbar(
     
     tags$div(class = "section-header",
              tags$h2("Explore Locations"),
-             tags$p("See where Bierstadt set up his easel across America. Click a marker for details."),
+             tags$p("See historical paintings across America. Click a marker for details."),
              tags$div(class = "accent-line")
     ),
     
@@ -2000,34 +2000,58 @@ ui <- page_navbar(
                                textInput("submit_email", "Email (optional)", placeholder = "jane@university.edu")
                       ),
                       
-                      # -- PAINTING SELECTOR (landscape & museum_photo only) --
-                      # For landscape/museum_photo submissions, user picks an existing painting.
-                      # Hidden for user_painting submissions (they're adding a NEW painting).
+                      tags$div(class = "form-group",
+                               radioButtons(
+                                 inputId = "submit_source_type",
+                                 label = "Where are you uploading this photo from?",
+                                 choices = c(
+                                   "I visited the actual painting location (in the field)" = "field",
+                                   "I took this photo in a museum (of the painting itself)" = "museum"
+                                 ),
+                                 selected = NULL,
+                                 inline = FALSE
+                               )
+                      ),
+                      
+                      # === Conditional: Painting Site (Field Location) ===
                       conditionalPanel(
-                        condition = "input.submit_type !== 'user_painting'",
+                        condition = "input.submit_source_type == 'field'",
                         tags$div(class = "form-group",
-                                 selectInput("submit_painting", "Which painting?",
-                                             choices = c("Select a painting..." = "", setNames(paintings_data$id, paintings_data$title)))
+                                 selectInput(
+                                   "submit_painting",
+                                   "Which Bierstadt painting location did you visit?",
+                                   choices = c("Select a location..." = "", 
+                                               setNames(paintings_data$id, paintings_data$title))
+                                 )
                         )
                       ),
                       
-                      # -- USER PAINTING FIELDS (user_painting only) --
-                      # These fields only appear when the user is uploading a new painting.
+                      # === Conditional: Museum ===
                       conditionalPanel(
-                        condition = "input.submit_type === 'user_painting'",
+                        condition = "input.submit_source_type == 'museum'",
                         tags$div(class = "form-group",
-                                 textInput("submit_painting_title", "Painting Title", placeholder = "Storm in the Rocky Mountains")
-                        ),
-                        tags$div(class = "form-group",
-                                 textInput("submit_artist_name", "Artist Name", placeholder = "Albert Bierstadt")
-                        ),
-                        tags$div(style = "display: grid; grid-template-columns: 1fr 1fr; gap: 16px;",
-                                 tags$div(class = "form-group",
-                                          textInput("submit_painting_year", "Year (optional)", placeholder = "1866")
-                                 ),
-                                 tags$div(class = "form-group",
-                                          textInput("submit_painting_context", "Brief Description (optional)", placeholder = "Painted during his trip to the Rockies")
+                                 selectInput(
+                                   "submit_museum",
+                                   "Which museum did you visit?",
+                                   choices = c(
+                                     "Select a museum..." = "",
+                                     "Metropolitan Museum of Art (New York)" = "met",
+                                     "National Gallery of Art (Washington, D.C.)" = "nga",
+                                     "Smithsonian American Art Museum" = "saam",
+                                     "Denver Art Museum" = "denver",
+                                     "Museum of Fine Arts, Boston" = "mfa_boston",
+                                     "Other (please specify below)" = "other"
+                                   )
                                  )
+                        )
+                      ),
+                      
+                      # Optional: If user selects "Other" museum, show a text field
+                      conditionalPanel(
+                        condition = "input.submit_source_type == 'museum' && input.submit_museum == 'other'",
+                        tags$div(class = "form-group",
+                                 textInput("submit_museum_other", "Please specify the museum name", 
+                                           placeholder = "e.g. Yale University Art Gallery")
                         )
                       ),
                       
