@@ -68,7 +68,13 @@ db_load_submissions <- function() {
       painting_id = integer(), photo_url = character(),
       latitude = numeric(), longitude = numeric(),
       observations = character(), submission_date = character(),
-      approval_status = character(), stringsAsFactors = FALSE
+      approval_status = character(),
+      submission_type = character(),    # "landscape", "museum_photo", or "user_painting"
+      painting_title = character(),     # only for user_painting submissions
+      artist_name = character(),        # only for user_painting submissions
+      painting_year = character(),      # only for user_painting submissions
+      painting_context = character(),   # only for user_painting submissions
+      stringsAsFactors = FALSE
     ))
   }
   result
@@ -80,8 +86,9 @@ db_insert_submission <- function(sub_df) {
   on.exit(dbDisconnect(con))
   dbExecute(con, 
             "INSERT INTO submissions (submission_id, name, email, painting_id, photo_url,
-     latitude, longitude, observations, submission_date, approval_status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+     latitude, longitude, observations, submission_date, approval_status,
+     submission_type, painting_title, artist_name, painting_year, painting_context)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
             params = list(
               sub_df$submission_id,
               sub_df$name,
@@ -92,7 +99,12 @@ db_insert_submission <- function(sub_df) {
               sub_df$longitude,
               sub_df$observations,
               sub_df$submission_date,
-              sub_df$approval_status
+              sub_df$approval_status,
+              sub_df$submission_type,
+              sub_df$painting_title,
+              sub_df$artist_name,
+              sub_df$painting_year,
+              sub_df$painting_context
             )
   )
 }
@@ -937,6 +949,41 @@ body {
   box-shadow: 0 0 12px rgba(52, 211, 153, 0.3);
 }
 
+/* Artist filter dropdown in map filter bar */
+.artist-filter-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+.artist-filter-wrap .shiny-input-container {
+  margin-bottom: 0 !important;
+  width: 180px !important;
+}
+
+.artist-filter-wrap .selectize-input {
+  padding: 7px 14px !important;
+  min-height: 0 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  border-radius: 50px !important;
+  background: var(--glass-bg-light) !important;
+  border: 1px solid var(--glass-border-subtle) !important;
+  color: var(--text-secondary) !important;
+  line-height: 1.4 !important;
+}
+
+.artist-filter-wrap .selectize-input.focus {
+  border-color: var(--terra) !important;
+  box-shadow: 0 0 12px var(--terra-glow) !important;
+  background: var(--glass-bg-strong) !important;
+  color: var(--text-primary) !important;
+}
+
+.artist-filter-wrap .selectize-dropdown {
+  border-radius: var(--radius-sm) !important;
+  margin-top: 4px !important;
+}
+
 
 /* Submission info extras */
 .map-info-observations {
@@ -1727,6 +1774,38 @@ body.light-mode ::-webkit-scrollbar-thumb {
   font-weight: 700;
   color: var(--sage-light);
 }
+
+/* ==============================================
+   MUSEUM PHOTO BADGE ON GALLERY CARDS
+   ============================================== */
+.museum-photo-badge {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(15, 26, 20, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--amber-glow);
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s var(--ease);
+  letter-spacing: 0.3px;
+}
+
+.museum-photo-badge:hover {
+  background: rgba(226, 185, 76, 0.2);
+  border-color: var(--amber);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px var(--amber-glow);
+}
 "
 
 ################################################################################
@@ -1824,6 +1903,13 @@ ui <- page_navbar(
              tags$div(class = "map-filter-btn locate-me-btn", id = "locate_me_btn",
                       onclick = "startGeolocation();",
                       HTML("&#9678; My Location")
+             ),
+             # Artist filter dropdown — styled inline with the filter buttons
+             tags$div(class = "artist-filter-wrap",
+                      selectInput("map_artist_filter", NULL,
+                                  choices = c("All Artists" = "", sort(unique(paintings_data$artist))),
+                                  selected = "",
+                                  width = "180px")
              )
     ),
     
@@ -1844,7 +1930,7 @@ ui <- page_navbar(
   
   
   # -- TAB 2: GALLERY ------------------------------------------------------
-  # Displays all Bierstadt paintings as clickable cards.
+  # Displays all paintings as clickable cards with optional museum photo badges.
   nav_panel(
     title = "Gallery",
     icon = icon("images"),
@@ -1852,6 +1938,18 @@ ui <- page_navbar(
     tags$div(class = "section-header",
              tags$h2("The Collection"),
              tags$div(class = "accent-line")
+    ),
+    
+    # Gallery filter bar
+    tags$div(class = "map-filter-bar",
+             tags$div(class = "map-filter-btn active", id = "gallery_filter_all",
+                      onclick = "Shiny.setInputValue('set_gallery_filter', 'all');",
+                      "All Paintings"
+             ),
+             tags$div(class = "map-filter-btn", id = "gallery_filter_museum",
+                      onclick = "Shiny.setInputValue('set_gallery_filter', 'museum_photos');",
+                      HTML("&#127963; Museum Photos")
+             )
     ),
     
     tags$div(class = "gallery-wrap",
@@ -1870,8 +1968,8 @@ ui <- page_navbar(
     icon = icon("camera"),
     
     tags$div(class = "section-header",
-             tags$h2("Contribute Your Photo"),
-             tags$p("Visit a Bierstadt painting location and share what it looks like today."),
+             tags$h2("Contribute"),
+             tags$p("Share landscape photos, museum visits, or upload historical paintings to expand the collection."),
              tags$div(class = "accent-line")
     ),
     
@@ -1880,64 +1978,97 @@ ui <- page_navbar(
                       
                       uiOutput("submit_message"),
                       # Placeholder for success or error messages shown after form submission.
-                      # The server controls whether to show a green success or red error alert.
+                      
+                      # -- SUBMISSION TYPE SELECTOR --
+                      # Three radio buttons that control which fields are visible below.
+                      tags$div(class = "form-group",
+                               radioButtons("submit_type", "What are you submitting?",
+                                            choices = c(
+                                              "Landscape Photo (visit a painting's location)" = "landscape",
+                                              "Museum Photo (photo of painting in a museum)" = "museum_photo",
+                                              "Upload a Painting (add a new historical painting)" = "user_painting"
+                                            ),
+                                            selected = "landscape"
+                               )
+                      ),
                       
                       tags$div(class = "form-group",
                                textInput("submit_name", "Your Name (optional)", placeholder = "Jane Doe")
-                               # textInput() creates a text field. First arg is the input ID,
-                               # second is the label shown above the field, third is the greyed-out
-                               # placeholder text inside the field.
                       ),
                       
                       tags$div(class = "form-group",
                                textInput("submit_email", "Email (optional)", placeholder = "jane@university.edu")
                       ),
                       
-                      tags$div(class = "form-group",
-                               selectInput("submit_painting", "Which location did you visit?",
-                                           choices = c("Select a location..." = "", setNames(paintings_data$id, paintings_data$title)))
-                               # selectInput() creates a dropdown menu.
-                               # setNames(paintings_data$id, paintings_data$title) pairs each painting's
-                               # ID (the value sent to the server) with its title (the text shown to users).
-                               # The empty string -- is the default "please select" option.
+                      # -- PAINTING SELECTOR (landscape & museum_photo only) --
+                      # For landscape/museum_photo submissions, user picks an existing painting.
+                      # Hidden for user_painting submissions (they're adding a NEW painting).
+                      conditionalPanel(
+                        condition = "input.submit_type !== 'user_painting'",
+                        tags$div(class = "form-group",
+                                 selectInput("submit_painting", "Which painting?",
+                                             choices = c("Select a painting..." = "", setNames(paintings_data$id, paintings_data$title)))
+                        )
+                      ),
+                      
+                      # -- USER PAINTING FIELDS (user_painting only) --
+                      # These fields only appear when the user is uploading a new painting.
+                      conditionalPanel(
+                        condition = "input.submit_type === 'user_painting'",
+                        tags$div(class = "form-group",
+                                 textInput("submit_painting_title", "Painting Title", placeholder = "Storm in the Rocky Mountains")
+                        ),
+                        tags$div(class = "form-group",
+                                 textInput("submit_artist_name", "Artist Name", placeholder = "Albert Bierstadt")
+                        ),
+                        tags$div(style = "display: grid; grid-template-columns: 1fr 1fr; gap: 16px;",
+                                 tags$div(class = "form-group",
+                                          textInput("submit_painting_year", "Year (optional)", placeholder = "1866")
+                                 ),
+                                 tags$div(class = "form-group",
+                                          textInput("submit_painting_context", "Brief Description (optional)", placeholder = "Painted during his trip to the Rockies")
+                                 )
+                        )
                       ),
                       
                       tags$div(class = "form-group",
                                tags$label("Upload Your Photo"),
                                tags$div(class = "upload-zone",
-                                        # upload-zone is a styled dashed box for the file upload area.
                                         tags$div(class = "upload-icon", HTML("&#128247;")),
-                                        # &#128247; is the HTML code for the "* camera emoji.
-                                        tags$p(style = "...", "Drag & drop or click to browse"),
+                                        tags$p(style = "color: var(--text-secondary); font-size: 14px;", "Drag & drop or click to browse"),
                                         fileInput("submit_photo", NULL, accept = c("image/png", "image/jpeg", "image/jpg"))
-                                        # fileInput() creates the file upload control.
-                                        # accept limits which file types the browser's file picker shows.
-                                        # NULL for the label means no label text -- it's handled by the tags above.
                                )
                       ),
                       
-                      tags$div(style = "display: grid; grid-template-columns: 1fr 1fr; gap: 16px;",
-                               # An inline CSS grid to place Latitude and Longitude fields side-by-side.
-                               
-                               tags$div(class = "form-group",
-                                        numericInput("submit_latitude", "Latitude", value = NA, step = 0.0001)
-                                        # numericInput() creates a number field. value = NA starts it empty.
-                                        # step = 0.0001 sets how much the value changes when using arrow keys.
+                      # -- GPS COORDINATES with "Use My Location" button --
+                      tags$div(class = "form-group",
+                               tags$div(style = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;",
+                                        tags$label("GPS Coordinates", style = "margin-bottom: 0;"),
+                                        tags$button(
+                                          id = "use_my_location_btn",
+                                          class = "map-filter-btn",
+                                          style = "padding: 6px 16px; font-size: 12px;",
+                                          onclick = "getFormLocation();",
+                                          HTML("&#9678; Use My Location")
+                                        )
                                ),
-                               tags$div(class = "form-group",
-                                        numericInput("submit_longitude", "Longitude", value = NA, step = 0.0001)
-                               )
+                               tags$div(style = "display: grid; grid-template-columns: 1fr 1fr; gap: 16px;",
+                                        tags$div(class = "form-group", style = "margin-bottom: 0;",
+                                                 numericInput("submit_latitude", NULL, value = NA, step = 0.0001)
+                                        ),
+                                        tags$div(class = "form-group", style = "margin-bottom: 0;",
+                                                 numericInput("submit_longitude", NULL, value = NA, step = 0.0001)
+                                        )
+                               ),
+                               tags$div(id = "location_status", style = "font-size: 12px; color: var(--text-muted); margin-top: 6px;")
                       ),
                       
                       tags$div(class = "form-group",
                                textAreaInput("submit_observations", "Observations (optional)", rows = 3,
                                              placeholder = "What did you notice about how the landscape has changed?")
-                               # textAreaInput() is like textInput but multi-line. rows = 3 sets the height.
                       ),
                       
-                      actionButton("submit_button", HTML("Submit Photo &rarr;"), class = "btn-submit")
-                      # The submit button. When clicked, the server's observeEvent(input$submit_button)
-                      # block runs to validate the form and save the data.
+                      actionButton("submit_button", HTML("Submit &rarr;"), class = "btn-submit")
              )
     )
   ),
@@ -2023,7 +2154,27 @@ ui <- page_navbar(
                         actionButton("approve_submission", "Approve Selected", class = "btn btn-approve"),
                         actionButton("reject_submission", "Reject Selected", class = "btn btn-reject"),
                         actionButton("delete_submission", "Delete Selected", class = "btn btn-reject",
-                                     style = "background: #DC3545; border-color: #DC3545; color: white;")
+                                     style = "background: #DC3545; border-color: #DC3545; color: white;"),
+                        # Submission type filter dropdown
+                        tags$div(class = "artist-filter-wrap",
+                                 selectInput("admin_type_filter", NULL,
+                                             choices = c("All Types" = "",
+                                                         "Landscape Photos" = "landscape",
+                                                         "Museum Photos" = "museum_photo",
+                                                         "User Paintings" = "user_painting"),
+                                             selected = "",
+                                             width = "180px")
+                        ),
+                        # Approval status filter dropdown
+                        tags$div(class = "artist-filter-wrap",
+                                 selectInput("admin_status_filter", NULL,
+                                             choices = c("All Statuses" = "",
+                                                         "Pending" = "Pending",
+                                                         "Approved" = "Approved",
+                                                         "Rejected" = "Rejected"),
+                                             selected = "",
+                                             width = "160px")
+                        )
                ),
                
                DTOutput("admin_table")
@@ -2055,6 +2206,23 @@ ui <- page_navbar(
                                tags$div(class = "comparison-label", "Present Day"),
                                tags$img(id = "comp-modern", src = "", draggable = "false")
                       )
+             )
+    ),
+    
+    # -- MUSEUM PHOTO LIGHTBOX ------------------------------------------
+    # Full-screen overlay showing a user's photo of a painting in a museum.
+    # Opened from the museum photo badge on gallery cards.
+    tags$div(id = "museum-photo-lightbox",
+             style = "display:none; position:fixed; inset:0; background:rgba(8,12,10,0.97); z-index:10001; align-items:center; justify-content:center; flex-direction:column; padding:60px 32px;",
+             tags$div(class = "lightbox-close", onclick = "closeMuseumLightbox()",
+                      style = "position:fixed; top:24px; right:24px; z-index:10002;", HTML("&times;")),
+             tags$div(style = "text-align:center; max-width:900px; width:100%;",
+                      tags$div(id = "museum-lb-label",
+                               style = "background:var(--glass-bg-strong); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); padding:8px 18px; border-radius:20px; font-size:13px; font-weight:700; color:var(--amber); border:1px solid var(--glass-border-subtle); display:inline-block; margin-bottom:20px;",
+                               "Museum Photo"
+                      ),
+                      tags$img(id = "museum-lb-img", src = "", style = "max-width:100%; max-height:70vh; border-radius:var(--radius-md); box-shadow:var(--shadow-glass-lg); object-fit:contain;"),
+                      tags$div(id = "museum-lb-info", style = "margin-top:16px; color:var(--text-secondary); font-size:14px;")
              )
     ),
     
@@ -2105,9 +2273,26 @@ ui <- page_navbar(
         document.body.style.overflow = '';
       };
 
-      // Pressing Escape closes the comparison lightbox.
+      // -- MUSEUM PHOTO LIGHTBOX -----------------------------------------
+      window.openMuseumLightbox = function(imgSrc, title, submitter) {
+        document.getElementById('museum-lb-img').src = imgSrc;
+        document.getElementById('museum-lb-info').innerHTML = '<strong>' + title + '</strong><br>Photographed by ' + submitter;
+        var lb = document.getElementById('museum-photo-lightbox');
+        lb.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      };
+
+      window.closeMuseumLightbox = function() {
+        document.getElementById('museum-photo-lightbox').style.display = 'none';
+        document.body.style.overflow = '';
+      };
+
+      // Pressing Escape closes any open lightbox.
       document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') { closeComparisonLightbox(); }
+        if (e.key === 'Escape') {
+          closeComparisonLightbox();
+          closeMuseumLightbox();
+        }
       });
 
       // -- 3D CARD TILT EFFECT ------------------------------------------
@@ -2200,6 +2385,42 @@ ui <- page_navbar(
         );
       };
 
+      // -- FORM GEOLOCATION (one-shot) ------------------------------------
+      // Uses getCurrentPosition to fill in the lat/lng fields on the
+      // Contribute form. Unlike the map's watchPosition, this fires once.
+      window.getFormLocation = function() {
+        var statusEl = document.getElementById('location_status');
+        var btn = document.getElementById('use_my_location_btn');
+
+        if (!navigator.geolocation) {
+          if (statusEl) statusEl.textContent = 'Geolocation not supported by your browser.';
+          return;
+        }
+
+        if (statusEl) statusEl.textContent = 'Getting your location...';
+        btn.style.opacity = '0.5';
+        btn.style.pointerEvents = 'none';
+
+        navigator.geolocation.getCurrentPosition(
+          function(pos) {
+            Shiny.setInputValue('submit_latitude', pos.coords.latitude);
+            Shiny.setInputValue('submit_longitude', pos.coords.longitude);
+            // Also update the visible numeric input fields
+            $('#submit_latitude').val(pos.coords.latitude.toFixed(4));
+            $('#submit_longitude').val(pos.coords.longitude.toFixed(4));
+            if (statusEl) statusEl.textContent = 'Location set (' + pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4) + ')';
+            btn.style.opacity = '1';
+            btn.style.pointerEvents = 'auto';
+          },
+          function(err) {
+            if (statusEl) statusEl.textContent = err.code === 1 ? 'Location access denied.' : 'Unable to get location.';
+            btn.style.opacity = '1';
+            btn.style.pointerEvents = 'auto';
+          },
+          { enableHighAccuracy: true, timeout: 15000 }
+        );
+      };
+
       // -- LEAFLET MAP FIX ----------------------------------------------
       // Leaflet maps don't render correctly when inside a hidden tab because
       // they calculate their size when the tab isn't visible yet (size = 0).
@@ -2244,7 +2465,8 @@ server <- function(input, output, session) {
     selected_marker = NULL,   # stores the ID of the currently clicked map marker
     selected_type = NULL,     # "painting" or "submission" to distinguish marker types
     filter_painting_id = NULL, # when set, the Compare tab only shows comparisons for this painting
-    map_filter = "all"        # controls which markers are visible: "all", "paintings", or "submissions"
+    map_filter = "all",        # controls which markers are visible: "all", "paintings", or "submissions"
+    gallery_filter = "all"     # controls gallery view: "all" or "museum_photos"
   )
   
   # UPDATED: Tracks which basemap is currently displayed to avoid unnecessary redraws
@@ -2313,37 +2535,88 @@ server <- function(input, output, session) {
   output$painting_cards <- renderUI({
     
     all_subs <- rv$submissions
+    gallery_filter <- rv$gallery_filter
+    
     sub_counts <- if (nrow(all_subs) > 0) {
       as.data.frame(table(all_subs$painting_id), stringsAsFactors = FALSE)
     } else {
       data.frame(Var1 = character(), Freq = integer(), stringsAsFactors = FALSE)
     }
     
-    # Count APPROVED submissions per painting to decide whether to show
-    # the "View Comparisons" button.
-    approved_subs <- rv$submissions[rv$submissions$approval_status == "Approved", ]
+    # Count APPROVED landscape submissions per painting (for "View Comparisons").
+    approved_subs <- rv$submissions[rv$submissions$approval_status == "Approved" &
+                                      (is.na(rv$submissions$submission_type) | rv$submissions$submission_type == "landscape"), ]
     approved_counts <- if (nrow(approved_subs) > 0) {
       as.data.frame(table(approved_subs$painting_id), stringsAsFactors = FALSE)
     } else {
       data.frame(Var1 = character(), Freq = integer(), stringsAsFactors = FALSE)
     }
     
-    cards <- lapply(1:nrow(paintings_data), function(i) {
-      p <- paintings_data[i, ]
+    # Find approved MUSEUM PHOTO submissions per painting.
+    museum_subs <- rv$submissions[rv$submissions$approval_status == "Approved" &
+                                    !is.na(rv$submissions$submission_type) &
+                                    rv$submissions$submission_type == "museum_photo", ]
+    
+    # Build a lookup: painting_id -> first approved museum photo submission
+    museum_photo_lookup <- list()
+    if (nrow(museum_subs) > 0) {
+      for (j in 1:nrow(museum_subs)) {
+        pid_char <- as.character(museum_subs[j, "painting_id"])
+        if (is.null(museum_photo_lookup[[pid_char]])) {
+          museum_photo_lookup[[pid_char]] <- museum_subs[j, ]
+        }
+      }
+    }
+    
+    # Determine which paintings to show based on gallery filter.
+    if (gallery_filter == "museum_photos") {
+      # Only paintings that have at least one approved museum photo
+      painting_ids_with_museum <- as.integer(names(museum_photo_lookup))
+      display_data <- paintings_data[paintings_data$id %in% painting_ids_with_museum, ]
+    } else {
+      display_data <- paintings_data
+    }
+    
+    if (nrow(display_data) == 0) {
+      return(tags$div(class = "no-comparisons",
+                      HTML("No paintings with museum photos yet. Be the first to contribute one!")
+      ))
+    }
+    
+    cards <- lapply(1:nrow(display_data), function(i) {
+      p <- display_data[i, ]
       
       # Look up how many total submissions exist for this painting.
       count_match <- sub_counts[sub_counts$Var1 == as.character(p$id), "Freq"]
       sub_count <- if (length(count_match) > 0) count_match[1] else 0
       
-      # Look up how many APPROVED comparisons exist for this painting.
+      # Look up how many APPROVED landscape comparisons exist.
       approved_match <- approved_counts[approved_counts$Var1 == as.character(p$id), "Freq"]
       approved_count <- if (length(approved_match) > 0) approved_match[1] else 0
+      
+      # Check if a museum photo exists for this painting.
+      museum_sub <- museum_photo_lookup[[as.character(p$id)]]
+      has_museum_photo <- !is.null(museum_sub)
       
       tags$div(class = "painting-card",
                
                tags$div(class = "painting-card-img-wrap",
                         tags$img(src = p$image_url, class = "painting-image", alt = p$title),
-                        tags$div(class = "painting-card-badge", p$year)
+                        tags$div(class = "painting-card-badge", p$year),
+                        # Museum photo badge — clickable icon in bottom-right of image
+                        if (has_museum_photo) {
+                          tags$div(
+                            class = "museum-photo-badge",
+                            onclick = sprintf(
+                              "event.stopPropagation(); openMuseumLightbox('%s', '%s', '%s');",
+                              gsub("'", "\\\\'", museum_sub$photo_url),
+                              gsub("'", "\\\\'", p$title),
+                              gsub("'", "\\\\'", museum_sub$name)
+                            ),
+                            title = "View museum photo",
+                            HTML("&#127963; Museum Photo")
+                          )
+                        }
                ),
                
                tags$div(class = "painting-info",
@@ -2403,14 +2676,22 @@ server <- function(input, output, session) {
     approved <- rv$submissions[rv$submissions$approval_status == "Approved", ]
     rv$approved_trigger
     filter <- rv$map_filter
+    artist_filter <- input$map_artist_filter  # "" means all artists
+    
+    # Filter paintings by artist if one is selected
+    filtered_paintings <- if (!is.null(artist_filter) && artist_filter != "") {
+      paintings_data[paintings_data$artist == artist_filter, ]
+    } else {
+      paintings_data
+    }
     
     proxy <- leafletProxy("main_map")
     
     # -- PAINTING MARKERS (red) --
     proxy %>% clearGroup("paintings")
-    if (filter %in% c("all", "paintings")) {
+    if (filter %in% c("all", "paintings") && nrow(filtered_paintings) > 0) {
       proxy %>% addCircleMarkers(
-        data = paintings_data,
+        data = filtered_paintings,
         lng = ~longitude, lat = ~latitude,
         radius = 8,
         color = "#A85D3F",
@@ -2434,6 +2715,13 @@ server <- function(input, output, session) {
     proxy %>% clearGroup("submissions")
     if (filter %in% c("all", "submissions") && nrow(approved) > 0) {
       valid_subs <- approved[!is.na(approved$latitude) & !is.na(approved$longitude), ]
+      
+      # If an artist filter is active, only show submissions linked to that artist's paintings
+      if (!is.null(artist_filter) && artist_filter != "" && nrow(valid_subs) > 0) {
+        artist_painting_ids <- filtered_paintings$id
+        valid_subs <- valid_subs[valid_subs$painting_id %in% artist_painting_ids, ]
+      }
+      
       if (nrow(valid_subs) > 0) {
         valid_subs$painting_title <- sapply(valid_subs$painting_id, function(pid) {
           match_row <- paintings_data[paintings_data$id == pid, ]
@@ -2465,7 +2753,7 @@ server <- function(input, output, session) {
     # -- MUSEUM MARKERS (dark red) --
     proxy %>% clearGroup("museums")
     if (filter %in% c("all", "museums")) {
-      museum_data <- paintings_data[!is.na(paintings_data$museum_latitude) & !is.na(paintings_data$museum_longitude), ]
+      museum_data <- filtered_paintings[!is.na(filtered_paintings$museum_latitude) & !is.na(filtered_paintings$museum_longitude), ]
       if (nrow(museum_data) > 0) {
         proxy %>% addCircleMarkers(
           data = museum_data,
@@ -2503,6 +2791,20 @@ server <- function(input, output, session) {
         document.querySelectorAll('.map-filter-btn').forEach(function(btn) { btn.classList.remove('active'); });
         document.getElementById('map_filter_%s').classList.add('active');
       ", new_filter))
+    }
+  })
+  
+  # -- GALLERY FILTER TOGGLE -----------------------------------------------
+  # Handles clicks on the gallery filter buttons (All / Museum Photos).
+  # Updates rv$gallery_filter and swaps the active class on the buttons.
+  observeEvent(input$set_gallery_filter, {
+    new_filter <- input$set_gallery_filter
+    if (new_filter %in% c("all", "museum_photos")) {
+      rv$gallery_filter <- new_filter
+      shinyjs::runjs(sprintf("
+        document.querySelectorAll('#gallery_filter_all, #gallery_filter_museum').forEach(function(btn) { btn.classList.remove('active'); });
+        document.getElementById('%s').classList.add('active');
+      ", ifelse(new_filter == "all", "gallery_filter_all", "gallery_filter_museum")))
     }
   })
   
@@ -2857,65 +3159,72 @@ server <- function(input, output, session) {
     rv$submission_error <- NULL
     
     # -- VALIDATION ------------------------------------------------------
-    # Check each required field. If invalid, set an error message and stop.
-    if (input$submit_painting == "") {
-      rv$submission_error <- "Please select a location."
+    # Validate based on submission type.
+    sub_type <- input$submit_type
+    
+    # For landscape and museum_photo, an existing painting must be selected.
+    if (sub_type %in% c("landscape", "museum_photo") && input$submit_painting == "") {
+      rv$submission_error <- "Please select a painting."
       return()
-      # return() exits the observeEvent block early -- nothing below this runs.
+    }
+    # For user_painting, title and artist are required.
+    if (sub_type == "user_painting") {
+      if (is.null(input$submit_painting_title) || trimws(input$submit_painting_title) == "") {
+        rv$submission_error <- "Please enter the painting title."
+        return()
+      }
+      if (is.null(input$submit_artist_name) || trimws(input$submit_artist_name) == "") {
+        rv$submission_error <- "Please enter the artist name."
+        return()
+      }
     }
     if (is.null(input$submit_photo)) {
       rv$submission_error <- "Please upload a photo."
       return()
     }
     if (is.na(input$submit_latitude) || is.na(input$submit_longitude)) {
-      # is.na() checks if a value is missing/empty.
-      rv$submission_error <- "Please enter GPS coordinates."
+      rv$submission_error <- "Please enter GPS coordinates or use the location button."
       return()
     }
     if (input$submit_photo$size > 5 * 1024 * 1024) {
-      # File size is in bytes. 5 * 1024 * 1024 = 5MB in bytes.
       rv$submission_error <- "File must be less than 5MB."
       return()
     }
     
     # -- SAVE SUBMISSION --------------------------------------------------
     tryCatch({
-      # tryCatch() runs the code inside and catches any errors so the app
-      # doesn't crash -- it runs the error function instead.
       
       file_data <- readBin(input$submit_photo$datapath, "raw", file.info(input$submit_photo$datapath)$size)
-      # readBin() reads the uploaded file as raw binary data.
-      # input$submit_photo$datapath is the temporary file path Shiny saved it to.
-      
       base64_image <- paste0("data:image/jpeg;base64,", base64enc::base64encode(file_data))
-      # base64encode() converts the binary image into a Base64 text string.
-      # This format (data:image/jpeg;base64,...) can be stored as text and
-      # displayed directly in an <img> src attribute without a file URL.
+      
+      # Build the painting_id: for landscape/museum_photo it comes from the dropdown;
+      # for user_painting it's NA (no existing painting to link to).
+      pid <- if (sub_type %in% c("landscape", "museum_photo")) {
+        as.integer(input$submit_painting)
+      } else {
+        NA_integer_
+      }
       
       new_submission <- data.frame(
-        # Creates a one-row data frame with all the submission details.
         submission_id = as.character(as.integer(Sys.time())),
-        # Uses the current Unix timestamp as a unique ID. as.integer() removes decimals.
         name = ifelse(input$submit_name == "", "Anonymous", input$submit_name),
-        # ifelse() picks "Anonymous" if the name field is blank.
         email = input$submit_email,
-        painting_id = as.integer(input$submit_painting),
-        # The dropdown sends the painting's ID as a string; convert it to integer.
+        painting_id = pid,
         photo_url = base64_image,
         latitude = input$submit_latitude,
         longitude = input$submit_longitude,
         observations = input$submit_observations,
         submission_date = as.character(Sys.Date()),
-        # Sys.Date() gets today's date. as.character() converts it to "YYYY-MM-DD".
         approval_status = "Pending",
-        # All new submissions start as "Pending" until an admin approves or rejects.
+        submission_type = sub_type,
+        painting_title = if (sub_type == "user_painting") trimws(input$submit_painting_title) else NA_character_,
+        artist_name = if (sub_type == "user_painting") trimws(input$submit_artist_name) else NA_character_,
+        painting_year = if (sub_type == "user_painting") trimws(input$submit_painting_year) else NA_character_,
+        painting_context = if (sub_type == "user_painting") trimws(input$submit_painting_context) else NA_character_,
         stringsAsFactors = FALSE
-        # Prevents R from converting text columns to factor type (old R behavior).
       )
       
       rv$submissions <- rbind(rv$submissions, new_submission)
-      # rbind() appends the new row to the in-memory data frame for immediate UI update.
-      
       db_insert_submission(new_submission)
       # Writes the new submission to Supabase.
       
@@ -3028,44 +3337,74 @@ server <- function(input, output, session) {
   
   # -- ADMIN TABLE ----------------------------------------------------------
   # Renders the interactive data table of all submissions for the admin to review.
-  output$admin_table <- renderDT({
+  # -- ADMIN FILTERED DATA --------------------------------------------------
+  # Reactive expression that filters submissions based on admin dropdown selections.
+  # Used by both the table and the approve/reject/delete handlers to ensure
+  # row indices always match the displayed table.
+  admin_filtered <- reactive({
     input$refresh_admin
-    # Reading this input here means the table will re-render whenever the
-    # Refresh button is clicked (even though we don't use its value directly).
+    subs <- rv$submissions
+    if (nrow(subs) == 0) return(subs)
     
-    if (nrow(rv$submissions) == 0) return(data.frame(Message = "No submissions yet"))
-    # If there's nothing to show, return a simple placeholder table.
+    # Filter by submission type
+    type_filter <- input$admin_type_filter
+    if (!is.null(type_filter) && type_filter != "") {
+      subs <- subs[!is.na(subs$submission_type) & subs$submission_type == type_filter, ]
+    }
+    
+    # Filter by approval status
+    status_filter <- input$admin_status_filter
+    if (!is.null(status_filter) && status_filter != "") {
+      subs <- subs[subs$approval_status == status_filter, ]
+    }
+    
+    subs
+  })
+  
+  output$admin_table <- renderDT({
+    filtered <- admin_filtered()
+    
+    if (nrow(filtered) == 0) return(datatable(data.frame(Message = "No submissions match the current filters."), rownames = FALSE))
+    
+    # For user_painting submissions, show painting_title instead of painting_id
+    display <- filtered[, c("submission_id", "name", "submission_type", "painting_id", "latitude", "longitude", "submission_date", "approval_status")]
+    
+    # Replace painting_id with painting title for readability
+    display$painting_id <- sapply(display$painting_id, function(pid) {
+      if (is.na(pid)) return("(user painting)")
+      match_row <- paintings_data[paintings_data$id == pid, ]
+      if (nrow(match_row) > 0) match_row$title[1] else as.character(pid)
+    })
+    names(display)[names(display) == "painting_id"] <- "painting"
     
     datatable(
-      rv$submissions[, c("submission_id", "name", "painting_id", "latitude", "longitude", "submission_date", "approval_status")],
-      # Select only the relevant columns to display (excludes the base64 photo data,
-      # which would be enormous and unreadable in a table).
-      
+      display,
       options = list(
         pageLength = 25,
-        # Show 25 rows per page before pagination kicks in.
         order = list(list(6, 'desc'))
-        # Default sort: column index 6 (submission_date) descending (newest first).
+        # Sort by submission_date descending (column index 6, 0-based).
       ),
       rownames = FALSE,
-      # Don't show R's row numbers as a column.
       selection = 'single'
-      # Only allow one row to be selected at a time (for approve/reject actions).
     )
   })
   
   
   # -- APPROVE SUBMISSION --------------------------------------------------
+  # Uses admin_filtered() to map the selected table row back to the correct
+  # submission_id, since filters may cause row indices to differ from rv$submissions.
   observeEvent(input$approve_submission, {
     if (length(input$admin_table_rows_selected) > 0) {
       idx <- input$admin_table_rows_selected
-      sid <- rv$submissions[idx, "submission_id"]
+      filtered <- admin_filtered()
+      if (idx > nrow(filtered)) return()
+      sid <- filtered[idx, "submission_id"]
       
       # Update in Supabase
       db_update_status(sid, "Approved")
       
-      # Update in-memory for immediate UI refresh
-      rv$submissions[idx, "approval_status"] <- "Approved"
+      # Update in-memory by matching submission_id
+      rv$submissions[rv$submissions$submission_id == sid, "approval_status"] <- "Approved"
       rv$approved_trigger <- rv$approved_trigger + 1
       
       showNotification("Approved!", type = "message")
@@ -3077,10 +3416,12 @@ server <- function(input, output, session) {
   observeEvent(input$reject_submission, {
     if (length(input$admin_table_rows_selected) > 0) {
       idx <- input$admin_table_rows_selected
-      sid <- rv$submissions[idx, "submission_id"]
+      filtered <- admin_filtered()
+      if (idx > nrow(filtered)) return()
+      sid <- filtered[idx, "submission_id"]
       
       db_update_status(sid, "Rejected")
-      rv$submissions[idx, "approval_status"] <- "Rejected"
+      rv$submissions[rv$submissions$submission_id == sid, "approval_status"] <- "Rejected"
       
       showNotification("Rejected.", type = "warning")
     }
@@ -3090,13 +3431,15 @@ server <- function(input, output, session) {
   observeEvent(input$delete_submission, {
     if (length(input$admin_table_rows_selected) > 0) {
       idx <- input$admin_table_rows_selected
-      deleted_id <- rv$submissions[idx, "submission_id"]
+      filtered <- admin_filtered()
+      if (idx > nrow(filtered)) return()
+      sid <- filtered[idx, "submission_id"]
       
       # Delete from Supabase
-      db_delete_submission(deleted_id)
+      db_delete_submission(sid)
       
-      # Remove from in-memory data frame
-      rv$submissions <- rv$submissions[-idx, ]
+      # Remove from in-memory data frame by submission_id
+      rv$submissions <- rv$submissions[rv$submissions$submission_id != sid, ]
       rv$approved_trigger <- rv$approved_trigger + 1
       
       showNotification("Deleted.", type = "error")
