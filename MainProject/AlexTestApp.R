@@ -1873,7 +1873,7 @@ ui <- page_navbar(
     
     tags$div(class = "section-header",
              tags$h2("Explore Locations"),
-             tags$p("See historical paintings across America. Click a marker for details."),
+             tags$p("See where Bierstadt set up his easel across America. Click a marker for details."),
              tags$div(class = "accent-line")
     ),
     
@@ -1940,18 +1940,6 @@ ui <- page_navbar(
              tags$div(class = "accent-line")
     ),
     
-    # Gallery filter bar
-    tags$div(class = "map-filter-bar",
-             tags$div(class = "map-filter-btn active", id = "gallery_filter_all",
-                      onclick = "Shiny.setInputValue('set_gallery_filter', 'all');",
-                      "All Paintings"
-             ),
-             tags$div(class = "map-filter-btn", id = "gallery_filter_museum",
-                      onclick = "Shiny.setInputValue('set_gallery_filter', 'museum_photos');",
-                      HTML("&#127963; Museum Photos")
-             )
-    ),
-    
     tags$div(class = "gallery-wrap",
              tags$div(id = "paintings-container", class = "paintings-grid",
                       uiOutput("painting_cards")
@@ -2000,58 +1988,34 @@ ui <- page_navbar(
                                textInput("submit_email", "Email (optional)", placeholder = "jane@university.edu")
                       ),
                       
-                      tags$div(class = "form-group",
-                               radioButtons(
-                                 inputId = "submit_source_type",
-                                 label = "Where are you uploading this photo from?",
-                                 choices = c(
-                                   "I visited the actual painting location (in the field)" = "field",
-                                   "I took this photo in a museum (of the painting itself)" = "museum"
+                      # -- PAINTING SELECTOR (landscape & museum_photo only) --
+                      # For landscape/museum_photo submissions, user picks an existing painting.
+                      # Hidden for user_painting submissions (they're adding a NEW painting).
+                      conditionalPanel(
+                        condition = "input.submit_type !== 'user_painting'",
+                        tags$div(class = "form-group",
+                                 selectInput("submit_painting", "Which painting?",
+                                             choices = c("Select a painting..." = "", setNames(paintings_data$id, paintings_data$title)))
+                        )
+                      ),
+                      
+                      # -- USER PAINTING FIELDS (user_painting only) --
+                      # These fields only appear when the user is uploading a new painting.
+                      conditionalPanel(
+                        condition = "input.submit_type === 'user_painting'",
+                        tags$div(class = "form-group",
+                                 textInput("submit_painting_title", "Painting Title", placeholder = "Storm in the Rocky Mountains")
+                        ),
+                        tags$div(class = "form-group",
+                                 textInput("submit_artist_name", "Artist Name", placeholder = "Albert Bierstadt")
+                        ),
+                        tags$div(style = "display: grid; grid-template-columns: 1fr 1fr; gap: 16px;",
+                                 tags$div(class = "form-group",
+                                          textInput("submit_painting_year", "Year (optional)", placeholder = "1866")
                                  ),
-                                 selected = NULL,
-                                 inline = FALSE
-                               )
-                      ),
-                      
-                      # === Conditional: Painting Site (Field Location) ===
-                      conditionalPanel(
-                        condition = "input.submit_source_type == 'field'",
-                        tags$div(class = "form-group",
-                                 selectInput(
-                                   "submit_painting",
-                                   "Which Bierstadt painting location did you visit?",
-                                   choices = c("Select a location..." = "", 
-                                               setNames(paintings_data$id, paintings_data$title))
+                                 tags$div(class = "form-group",
+                                          textInput("submit_painting_context", "Brief Description (optional)", placeholder = "Painted during his trip to the Rockies")
                                  )
-                        )
-                      ),
-                      
-                      # === Conditional: Museum ===
-                      conditionalPanel(
-                        condition = "input.submit_source_type == 'museum'",
-                        tags$div(class = "form-group",
-                                 selectInput(
-                                   "submit_museum",
-                                   "Which museum did you visit?",
-                                   choices = c(
-                                     "Select a museum..." = "",
-                                     "Metropolitan Museum of Art (New York)" = "met",
-                                     "National Gallery of Art (Washington, D.C.)" = "nga",
-                                     "Smithsonian American Art Museum" = "saam",
-                                     "Denver Art Museum" = "denver",
-                                     "Museum of Fine Arts, Boston" = "mfa_boston",
-                                     "Other (please specify below)" = "other"
-                                   )
-                                 )
-                        )
-                      ),
-                      
-                      # Optional: If user selects "Other" museum, show a text field
-                      conditionalPanel(
-                        condition = "input.submit_source_type == 'museum' && input.submit_museum == 'other'",
-                        tags$div(class = "form-group",
-                                 textInput("submit_museum_other", "Please specify the museum name", 
-                                           placeholder = "e.g. Yale University Art Gallery")
                         )
                       ),
                       
@@ -2065,26 +2029,30 @@ ui <- page_navbar(
                       ),
                       
                       # -- GPS COORDINATES with "Use My Location" button --
-                      tags$div(class = "form-group",
-                               tags$div(style = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;",
-                                        tags$label("GPS Coordinates", style = "margin-bottom: 0;"),
-                                        tags$button(
-                                          id = "use_my_location_btn",
-                                          class = "map-filter-btn",
-                                          style = "padding: 6px 16px; font-size: 12px;",
-                                          onclick = "getFormLocation();",
-                                          HTML("&#9678; Use My Location")
-                                        )
-                               ),
-                               tags$div(style = "display: grid; grid-template-columns: 1fr 1fr; gap: 16px;",
-                                        tags$div(class = "form-group", style = "margin-bottom: 0;",
-                                                 numericInput("submit_latitude", NULL, value = NA, step = 0.0001)
-                                        ),
-                                        tags$div(class = "form-group", style = "margin-bottom: 0;",
-                                                 numericInput("submit_longitude", NULL, value = NA, step = 0.0001)
-                                        )
-                               ),
-                               tags$div(id = "location_status", style = "font-size: 12px; color: var(--text-muted); margin-top: 6px;")
+                      # Hidden for museum_photo submissions since location isn't relevant.
+                      conditionalPanel(
+                        condition = "input.submit_type !== 'museum_photo'",
+                        tags$div(class = "form-group",
+                                 tags$div(style = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;",
+                                          tags$label("GPS Coordinates", style = "margin-bottom: 0;"),
+                                          tags$button(
+                                            id = "use_my_location_btn",
+                                            class = "map-filter-btn",
+                                            style = "padding: 6px 16px; font-size: 12px;",
+                                            onclick = "getFormLocation();",
+                                            HTML("&#9678; Use My Location")
+                                          )
+                                 ),
+                                 tags$div(style = "display: grid; grid-template-columns: 1fr 1fr; gap: 16px;",
+                                          tags$div(class = "form-group", style = "margin-bottom: 0;",
+                                                   numericInput("submit_latitude", NULL, value = NA, step = 0.0001)
+                                          ),
+                                          tags$div(class = "form-group", style = "margin-bottom: 0;",
+                                                   numericInput("submit_longitude", NULL, value = NA, step = 0.0001)
+                                          )
+                                 ),
+                                 tags$div(id = "location_status", style = "font-size: 12px; color: var(--text-muted); margin-top: 6px;")
+                        )
                       ),
                       
                       tags$div(class = "form-group",
@@ -2234,19 +2202,28 @@ ui <- page_navbar(
     ),
     
     # -- MUSEUM PHOTO LIGHTBOX ------------------------------------------
-    # Full-screen overlay showing a user's photo of a painting in a museum.
-    # Opened from the museum photo badge on gallery cards.
+    # Full-screen overlay with left/right arrows to cycle through
+    # multiple museum photos for a painting.
     tags$div(id = "museum-photo-lightbox",
              style = "display:none; position:fixed; inset:0; background:rgba(8,12,10,0.97); z-index:10001; align-items:center; justify-content:center; flex-direction:column; padding:60px 32px;",
              tags$div(class = "lightbox-close", onclick = "closeMuseumLightbox()",
                       style = "position:fixed; top:24px; right:24px; z-index:10002;", HTML("&times;")),
+             # Left arrow
+             tags$div(id = "museum-lb-prev", onclick = "museumLightboxNav(-1)",
+                      style = "position:fixed; left:24px; top:50%; transform:translateY(-50%); z-index:10002; cursor:pointer; font-size:36px; color:var(--text-secondary); background:var(--glass-bg); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--glass-border-subtle); width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all 0.3s;",
+                      HTML("&#8249;")),
+             # Right arrow
+             tags$div(id = "museum-lb-next", onclick = "museumLightboxNav(1)",
+                      style = "position:fixed; right:80px; top:50%; transform:translateY(-50%); z-index:10002; cursor:pointer; font-size:36px; color:var(--text-secondary); background:var(--glass-bg); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--glass-border-subtle); width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all 0.3s;",
+                      HTML("&#8250;")),
              tags$div(style = "text-align:center; max-width:900px; width:100%;",
                       tags$div(id = "museum-lb-label",
                                style = "background:var(--glass-bg-strong); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); padding:8px 18px; border-radius:20px; font-size:13px; font-weight:700; color:var(--amber); border:1px solid var(--glass-border-subtle); display:inline-block; margin-bottom:20px;",
                                "Museum Photo"
                       ),
-                      tags$img(id = "museum-lb-img", src = "", style = "max-width:100%; max-height:70vh; border-radius:var(--radius-md); box-shadow:var(--shadow-glass-lg); object-fit:contain;"),
-                      tags$div(id = "museum-lb-info", style = "margin-top:16px; color:var(--text-secondary); font-size:14px;")
+                      tags$img(id = "museum-lb-img", src = "", style = "max-width:100%; max-height:65vh; border-radius:var(--radius-md); box-shadow:var(--shadow-glass-lg); object-fit:contain;"),
+                      tags$div(id = "museum-lb-info", style = "margin-top:16px; color:var(--text-secondary); font-size:14px;"),
+                      tags$div(id = "museum-lb-counter", style = "margin-top:8px; color:var(--text-muted); font-size:12px; font-weight:600; letter-spacing:1px;")
              )
     ),
     
@@ -2297,25 +2274,56 @@ ui <- page_navbar(
         document.body.style.overflow = '';
       };
 
-      // -- MUSEUM PHOTO LIGHTBOX -----------------------------------------
-      window.openMuseumLightbox = function(imgSrc, title, submitter) {
-        document.getElementById('museum-lb-img').src = imgSrc;
-        document.getElementById('museum-lb-info').innerHTML = '<strong>' + title + '</strong><br>Photographed by ' + submitter;
+      // -- MUSEUM PHOTO LIGHTBOX (cycling) --------------------------------
+      // Stores the current photo array and index for arrow navigation.
+      var museumPhotos = [];
+      var museumPhotoIdx = 0;
+      var museumTitle = '';
+
+      function museumLightboxUpdate() {
+        if (museumPhotos.length === 0) return;
+        var photo = museumPhotos[museumPhotoIdx];
+        document.getElementById('museum-lb-img').src = photo.url;
+        document.getElementById('museum-lb-info').innerHTML = '<strong>' + museumTitle + '</strong><br>Photographed by ' + photo.name;
+        document.getElementById('museum-lb-counter').textContent = (museumPhotoIdx + 1) + ' / ' + museumPhotos.length;
+        // Show/hide arrows based on count
+        document.getElementById('museum-lb-prev').style.display = museumPhotos.length > 1 ? 'flex' : 'none';
+        document.getElementById('museum-lb-next').style.display = museumPhotos.length > 1 ? 'flex' : 'none';
+        document.getElementById('museum-lb-counter').style.display = museumPhotos.length > 1 ? 'block' : 'none';
+      }
+
+      window.openMuseumLightbox = function(title, photos) {
+        museumTitle = title;
+        museumPhotos = photos;
+        museumPhotoIdx = 0;
+        museumLightboxUpdate();
         var lb = document.getElementById('museum-photo-lightbox');
         lb.style.display = 'flex';
         document.body.style.overflow = 'hidden';
       };
 
+      window.museumLightboxNav = function(dir) {
+        if (museumPhotos.length <= 1) return;
+        museumPhotoIdx = (museumPhotoIdx + dir + museumPhotos.length) % museumPhotos.length;
+        museumLightboxUpdate();
+      };
+
       window.closeMuseumLightbox = function() {
         document.getElementById('museum-photo-lightbox').style.display = 'none';
         document.body.style.overflow = '';
+        museumPhotos = [];
+        museumPhotoIdx = 0;
       };
 
-      // Pressing Escape closes any open lightbox.
+      // Pressing Escape closes any open lightbox. Arrow keys cycle museum photos.
       document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
           closeComparisonLightbox();
           closeMuseumLightbox();
+        }
+        if (document.getElementById('museum-photo-lightbox').style.display === 'flex') {
+          if (e.key === 'ArrowLeft') museumLightboxNav(-1);
+          if (e.key === 'ArrowRight') museumLightboxNav(1);
         }
       });
 
@@ -2489,8 +2497,7 @@ server <- function(input, output, session) {
     selected_marker = NULL,   # stores the ID of the currently clicked map marker
     selected_type = NULL,     # "painting" or "submission" to distinguish marker types
     filter_painting_id = NULL, # when set, the Compare tab only shows comparisons for this painting
-    map_filter = "all",        # controls which markers are visible: "all", "paintings", or "submissions"
-    gallery_filter = "all"     # controls gallery view: "all" or "museum_photos"
+    map_filter = "all"        # controls which markers are visible: "all", "paintings", or "submissions"
   )
   
   # UPDATED: Tracks which basemap is currently displayed to avoid unnecessary redraws
@@ -2559,7 +2566,6 @@ server <- function(input, output, session) {
   output$painting_cards <- renderUI({
     
     all_subs <- rv$submissions
-    gallery_filter <- rv$gallery_filter
     
     sub_counts <- if (nrow(all_subs) > 0) {
       as.data.frame(table(all_subs$painting_id), stringsAsFactors = FALSE)
@@ -2576,39 +2582,25 @@ server <- function(input, output, session) {
       data.frame(Var1 = character(), Freq = integer(), stringsAsFactors = FALSE)
     }
     
-    # Find approved MUSEUM PHOTO submissions per painting.
+    # Find ALL approved museum photo submissions per painting.
     museum_subs <- rv$submissions[rv$submissions$approval_status == "Approved" &
                                     !is.na(rv$submissions$submission_type) &
                                     rv$submissions$submission_type == "museum_photo", ]
     
-    # Build a lookup: painting_id -> first approved museum photo submission
-    museum_photo_lookup <- list()
+    # Build a lookup: painting_id -> list of ALL approved museum photo submissions
+    museum_photos_lookup <- list()
     if (nrow(museum_subs) > 0) {
       for (j in 1:nrow(museum_subs)) {
         pid_char <- as.character(museum_subs[j, "painting_id"])
-        if (is.null(museum_photo_lookup[[pid_char]])) {
-          museum_photo_lookup[[pid_char]] <- museum_subs[j, ]
+        if (is.null(museum_photos_lookup[[pid_char]])) {
+          museum_photos_lookup[[pid_char]] <- list()
         }
+        museum_photos_lookup[[pid_char]] <- c(museum_photos_lookup[[pid_char]], list(museum_subs[j, ]))
       }
     }
     
-    # Determine which paintings to show based on gallery filter.
-    if (gallery_filter == "museum_photos") {
-      # Only paintings that have at least one approved museum photo
-      painting_ids_with_museum <- as.integer(names(museum_photo_lookup))
-      display_data <- paintings_data[paintings_data$id %in% painting_ids_with_museum, ]
-    } else {
-      display_data <- paintings_data
-    }
-    
-    if (nrow(display_data) == 0) {
-      return(tags$div(class = "no-comparisons",
-                      HTML("No paintings with museum photos yet. Be the first to contribute one!")
-      ))
-    }
-    
-    cards <- lapply(1:nrow(display_data), function(i) {
-      p <- display_data[i, ]
+    cards <- lapply(1:nrow(paintings_data), function(i) {
+      p <- paintings_data[i, ]
       
       # Look up how many total submissions exist for this painting.
       count_match <- sub_counts[sub_counts$Var1 == as.character(p$id), "Freq"]
@@ -2618,27 +2610,37 @@ server <- function(input, output, session) {
       approved_match <- approved_counts[approved_counts$Var1 == as.character(p$id), "Freq"]
       approved_count <- if (length(approved_match) > 0) approved_match[1] else 0
       
-      # Check if a museum photo exists for this painting.
-      museum_sub <- museum_photo_lookup[[as.character(p$id)]]
-      has_museum_photo <- !is.null(museum_sub)
+      # Check for museum photos for this painting.
+      museum_list <- museum_photos_lookup[[as.character(p$id)]]
+      museum_count <- if (!is.null(museum_list)) length(museum_list) else 0
+      
+      # Build JSON array of museum photos for the cycling lightbox
+      museum_json <- if (museum_count > 0) {
+        photos_arr <- lapply(museum_list, function(ms) {
+          list(url = ms$photo_url, name = ms$name)
+        })
+        gsub("'", "\\\\'", jsonlite::toJSON(photos_arr, auto_unbox = TRUE))
+      } else {
+        "[]"
+      }
       
       tags$div(class = "painting-card",
                
                tags$div(class = "painting-card-img-wrap",
                         tags$img(src = p$image_url, class = "painting-image", alt = p$title),
                         tags$div(class = "painting-card-badge", p$year),
-                        # Museum photo badge — clickable icon in bottom-right of image
-                        if (has_museum_photo) {
+                        # Museum photo badge — shows count, opens cycling lightbox
+                        if (museum_count > 0) {
                           tags$div(
                             class = "museum-photo-badge",
                             onclick = sprintf(
-                              "event.stopPropagation(); openMuseumLightbox('%s', '%s', '%s');",
-                              gsub("'", "\\\\'", museum_sub$photo_url),
+                              "event.stopPropagation(); openMuseumLightbox('%s', %s);",
                               gsub("'", "\\\\'", p$title),
-                              gsub("'", "\\\\'", museum_sub$name)
+                              museum_json
                             ),
-                            title = "View museum photo",
-                            HTML("&#127963; Museum Photo")
+                            title = "View museum photos",
+                            HTML(paste0("&#127963; Museum Photo", ifelse(museum_count > 1, "s", ""),
+                                        if (museum_count > 1) paste0(" (", museum_count, ")") else ""))
                           )
                         }
                ),
@@ -2736,9 +2738,12 @@ server <- function(input, output, session) {
     }
     
     # -- SUBMISSION MARKERS (blue) --
+    # Only show landscape submissions on the map (not museum_photo submissions).
     proxy %>% clearGroup("submissions")
     if (filter %in% c("all", "submissions") && nrow(approved) > 0) {
       valid_subs <- approved[!is.na(approved$latitude) & !is.na(approved$longitude), ]
+      # Exclude museum_photo submissions from map markers
+      valid_subs <- valid_subs[is.na(valid_subs$submission_type) | valid_subs$submission_type != "museum_photo", ]
       
       # If an artist filter is active, only show submissions linked to that artist's paintings
       if (!is.null(artist_filter) && artist_filter != "" && nrow(valid_subs) > 0) {
@@ -2815,20 +2820,6 @@ server <- function(input, output, session) {
         document.querySelectorAll('.map-filter-btn').forEach(function(btn) { btn.classList.remove('active'); });
         document.getElementById('map_filter_%s').classList.add('active');
       ", new_filter))
-    }
-  })
-  
-  # -- GALLERY FILTER TOGGLE -----------------------------------------------
-  # Handles clicks on the gallery filter buttons (All / Museum Photos).
-  # Updates rv$gallery_filter and swaps the active class on the buttons.
-  observeEvent(input$set_gallery_filter, {
-    new_filter <- input$set_gallery_filter
-    if (new_filter %in% c("all", "museum_photos")) {
-      rv$gallery_filter <- new_filter
-      shinyjs::runjs(sprintf("
-        document.querySelectorAll('#gallery_filter_all, #gallery_filter_museum').forEach(function(btn) { btn.classList.remove('active'); });
-        document.getElementById('%s').classList.add('active');
-      ", ifelse(new_filter == "all", "gallery_filter_all", "gallery_filter_museum")))
     }
   })
   
@@ -3011,7 +3002,7 @@ server <- function(input, output, session) {
         # Show "View Comparison(s)" button if approved comparisons exist
         if (ap_count > 0) {
           tags$div(class = "map-info-cta",
-                   onclick = "Shiny.setInputValue('go_compare_painting', Math.random());",
+                   onclick = sprintf("Shiny.setInputValue('go_compare_painting', {id: %d, t: Date.now()});", p$id),
                    HTML(paste0("View Comparison", ifelse(ap_count != 1, "s", ""), " &rarr;"))
           )
         },
@@ -3056,7 +3047,7 @@ server <- function(input, output, session) {
         },
         # Always show View Comparison since this IS an approved submission
         tags$div(class = "map-info-cta",
-                 onclick = "Shiny.setInputValue('go_compare_painting', Math.random());",
+                 onclick = sprintf("Shiny.setInputValue('go_compare_painting', {id: %d, t: Date.now()});", sub$painting_id),
                  HTML("View Comparison &rarr;")
         ),
         tags$div(class = "map-info-coords",
@@ -3075,6 +3066,23 @@ server <- function(input, output, session) {
       if (nrow(p) == 0) return(NULL)
       p <- p[1, ]
       
+      # Check for approved museum photo submissions for this painting
+      museum_subs <- rv$submissions[rv$submissions$approval_status == "Approved" &
+                                      !is.na(rv$submissions$submission_type) &
+                                      rv$submissions$submission_type == "museum_photo" &
+                                      rv$submissions$painting_id == p$id, ]
+      museum_count <- nrow(museum_subs)
+      
+      # Build JSON array for the cycling lightbox
+      museum_json <- if (museum_count > 0) {
+        photos_arr <- lapply(1:museum_count, function(j) {
+          list(url = museum_subs[j, "photo_url"], name = museum_subs[j, "name"])
+        })
+        gsub("'", "\\\\'", jsonlite::toJSON(photos_arr, auto_unbox = TRUE))
+      } else {
+        "[]"
+      }
+      
       tagList(
         tags$div(class = "map-info-header",
                  tags$div(class = "map-info-dot museum"),
@@ -3090,6 +3098,17 @@ server <- function(input, output, session) {
                  },
                  alt = ifelse(!is.null(p$museum_name) && !is.na(p$museum_name), p$museum_name, p$title)),
         tags$p(class = "map-info-context", paste0("This museum or collection currently holds \"", p$title, "\" by ", p$artist, " (", p$year, ").")),
+        # "View Museum Photos" button — opens cycling lightbox if museum photos exist
+        if (museum_count > 0) {
+          tags$div(class = "map-info-cta",
+                   onclick = sprintf("openMuseumLightbox('%s', %s);",
+                                     gsub("'", "\\\\'", p$title),
+                                     museum_json),
+                   HTML(paste0("View Museum Photo", ifelse(museum_count > 1, "s", ""),
+                               if (museum_count > 1) paste0(" (", museum_count, ")") else "",
+                               " &rarr;"))
+          )
+        },
         # "View Painting" button — flies map to the painting's landscape location
         tags$div(class = "map-info-cta museum",
                  onclick = sprintf("Shiny.setInputValue('go_to_painting', {id: %d, t: Date.now()});", p$id),
@@ -3206,7 +3225,7 @@ server <- function(input, output, session) {
       rv$submission_error <- "Please upload a photo."
       return()
     }
-    if (is.na(input$submit_latitude) || is.na(input$submit_longitude)) {
+    if (sub_type != "museum_photo" && (is.na(input$submit_latitude) || is.na(input$submit_longitude))) {
       rv$submission_error <- "Please enter GPS coordinates or use the location button."
       return()
     }
@@ -3235,8 +3254,8 @@ server <- function(input, output, session) {
         email = input$submit_email,
         painting_id = pid,
         photo_url = base64_image,
-        latitude = input$submit_latitude,
-        longitude = input$submit_longitude,
+        latitude = if (sub_type == "museum_photo") NA_real_ else input$submit_latitude,
+        longitude = if (sub_type == "museum_photo") NA_real_ else input$submit_longitude,
         observations = input$submit_observations,
         submission_date = as.character(Sys.Date()),
         approval_status = "Pending",
