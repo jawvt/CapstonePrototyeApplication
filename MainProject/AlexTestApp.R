@@ -1362,6 +1362,253 @@ body {
   border: 1px solid var(--glass-border-subtle);
 }
 
+/* Comparison lightbox toolbar (toggle + download) */
+.comp-toolbar {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10002;
+  display: flex;
+  gap: 10px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 50px;
+  padding: 8px 12px;
+}
+
+.comp-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 50px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  border: 1px solid var(--glass-border-subtle);
+  background: var(--glass-bg-light);
+  color: var(--text-secondary);
+  transition: all 0.3s var(--ease);
+}
+
+.comp-toolbar-btn:hover {
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  border-color: var(--glass-border);
+}
+
+.comp-toolbar-btn.active {
+  background: var(--glass-bg-strong);
+  border-color: var(--terra);
+  color: var(--terra-light);
+  box-shadow: 0 0 12px var(--terra-glow);
+}
+
+.comp-toolbar-btn.download {
+  border-color: var(--sage);
+  color: var(--sage-light);
+}
+
+.comp-toolbar-btn.download:hover {
+  background: rgba(127, 168, 138, 0.15);
+  box-shadow: 0 4px 16px var(--sage-glow);
+}
+
+/* ==============================================
+   COMPARISON SLIDER MODE
+   ============================================== */
+.comp-slider-wrap {
+  display: none;
+  width: 100%;
+  height: 100%;
+  padding: 70px 32px;
+  justify-content: center;
+  align-items: center;
+}
+
+.comp-slider-wrap.active {
+  display: flex;
+}
+
+.comp-slider-container {
+  position: relative;
+  max-width: 900px;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border-subtle);
+  box-shadow: var(--shadow-glass-lg);
+  background: #000;
+  cursor: ew-resize;
+}
+
+.comp-slider-container img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.comp-slider-container .slider-historical {
+  z-index: 1;
+}
+
+.comp-slider-container .slider-modern {
+  z-index: 2;
+  clip-path: inset(0 0 0 50%);
+}
+
+.comp-slider-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  background: var(--text-primary);
+  z-index: 3;
+  transform: translateX(-50%);
+  pointer-events: none;
+  box-shadow: 0 0 12px rgba(0,0,0,0.5);
+}
+
+.comp-slider-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid var(--text-primary);
+  box-shadow: var(--shadow-glass);
+}
+
+.comp-slider-label {
+  position: absolute;
+  top: 16px;
+  z-index: 4;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--amber);
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.comp-slider-label.left { left: 16px; }
+.comp-slider-label.right { right: 16px; }
+
+/* ==============================================
+   CONTRIBUTE LANDING CARDS
+   ============================================== */
+.contribute-landing {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 24px 60px;
+}
+
+.contribute-type-card {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 40px 28px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.4s var(--ease);
+  box-shadow: var(--shadow-glass);
+}
+
+.contribute-type-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--glass-border);
+  box-shadow: var(--shadow-glass), 0 0 30px rgba(232,151,107,0.1);
+}
+
+.contribute-type-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+  display: block;
+}
+
+.contribute-type-title {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 22px;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.contribute-type-desc {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.contribute-type-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--terra);
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: gap 0.3s;
+}
+
+.contribute-type-card:hover .contribute-type-cta {
+  gap: 10px;
+}
+
+/* Back button on form */
+.contribute-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border-subtle);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 20px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s var(--ease);
+  margin-bottom: 24px;
+}
+
+.contribute-back-btn:hover {
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .contribute-landing { grid-template-columns: 1fr; }
+}
+
 /* ==============================================
    ADMIN
    Glass login card and admin controls
@@ -1961,20 +2208,64 @@ ui <- page_navbar(
              tags$div(class = "accent-line")
     ),
     
-    tags$div(class = "form-wrap",
+    # -- LANDING PAGE: Three cards to choose submission type --
+    tags$div(id = "contribute-landing", class = "contribute-landing",
+             
+             tags$div(class = "contribute-type-card",
+                      onclick = "selectContributeType('landscape')",
+                      tags$span(class = "contribute-type-icon", HTML("&#127748;")),
+                      tags$div(class = "contribute-type-title", "Landscape Photo"),
+                      tags$div(class = "contribute-type-desc",
+                               "Visit a painting's real-world location and photograph what it looks like today."
+                      ),
+                      tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
+             ),
+             
+             tags$div(class = "contribute-type-card",
+                      onclick = "selectContributeType('museum_photo')",
+                      tags$span(class = "contribute-type-icon", HTML("&#127963;")),
+                      tags$div(class = "contribute-type-title", "Museum Photo"),
+                      tags$div(class = "contribute-type-desc",
+                               "Photograph a painting hanging in a museum or gallery and share the experience."
+                      ),
+                      tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
+             ),
+             
+             tags$div(class = "contribute-type-card",
+                      onclick = "selectContributeType('user_painting')",
+                      tags$span(class = "contribute-type-icon", HTML("&#128444;")),
+                      tags$div(class = "contribute-type-title", "Upload a Painting"),
+                      tags$div(class = "contribute-type-desc",
+                               "Add a new historical landscape painting to grow the collection beyond Bierstadt."
+                      ),
+                      tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
+             )
+    ),
+    
+    # -- FORM (hidden until a card is clicked) --
+    tags$div(id = "contribute-form-wrap", class = "form-wrap", style = "display: none;",
              tags$div(class = "form-card",
                       
-                      uiOutput("submit_message"),
-                      # Placeholder for success or error messages shown after form submission.
+                      # Back button to return to landing
+                      tags$div(class = "contribute-back-btn",
+                               onclick = "showContributeLanding()",
+                               HTML("&larr; Back")
+                      ),
                       
-                      # -- SUBMISSION TYPE SELECTOR --
-                      # Three radio buttons that control which fields are visible below.
-                      tags$div(class = "form-group",
-                               radioButtons("submit_type", "What are you submitting?",
+                      # Form type indicator
+                      tags$div(id = "contribute-form-type-label",
+                               style = "font-family: 'DM Serif Display', Georgia, serif; font-size: 22px; color: var(--text-primary); margin-bottom: 24px;"
+                      ),
+                      
+                      uiOutput("submit_message"),
+                      
+                      # Hidden radio buttons — set by JS when a card is clicked
+                      tags$div(style = "display: none;",
+                               radioButtons("submit_type", NULL,
                                             choices = c(
-                                              "Landscape Photo (visit a painting's location)" = "landscape",
-                                              "Museum Photo (photo of painting in a museum)" = "museum_photo",
-                                              "Upload a Painting (add a new historical painting)" = "user_painting"
+                                              "landscape" = "landscape",
+                                              "museum_photo" = "museum_photo",
+                                              "user_painting" = "user_painting"
                                             ),
                                             selected = "landscape"
                                )
@@ -1988,9 +2279,7 @@ ui <- page_navbar(
                                textInput("submit_email", "Email (optional)", placeholder = "jane@university.edu")
                       ),
                       
-                      # -- PAINTING SELECTOR (landscape & museum_photo only) --
-                      # For landscape/museum_photo submissions, user picks an existing painting.
-                      # Hidden for user_painting submissions (they're adding a NEW painting).
+                      # Painting selector (landscape & museum_photo only)
                       conditionalPanel(
                         condition = "input.submit_type !== 'user_painting'",
                         tags$div(class = "form-group",
@@ -1999,8 +2288,7 @@ ui <- page_navbar(
                         )
                       ),
                       
-                      # -- USER PAINTING FIELDS (user_painting only) --
-                      # These fields only appear when the user is uploading a new painting.
+                      # User painting fields (user_painting only)
                       conditionalPanel(
                         condition = "input.submit_type === 'user_painting'",
                         tags$div(class = "form-group",
@@ -2028,8 +2316,7 @@ ui <- page_navbar(
                                )
                       ),
                       
-                      # -- GPS COORDINATES with "Use My Location" button --
-                      # Hidden for museum_photo submissions since location isn't relevant.
+                      # GPS coordinates (hidden for museum_photo)
                       conditionalPanel(
                         condition = "input.submit_type !== 'museum_photo'",
                         tags$div(class = "form-group",
@@ -2188,15 +2475,43 @@ ui <- page_navbar(
              tags$div(class = "lightbox-close", onclick = "closeComparisonLightbox()",
                       style = "position: fixed; top: 24px; right: 24px; z-index: 10002;", HTML("&times;")),
              
-             tags$div(class = "comparison-container",
+             # Side-by-side view (default)
+             tags$div(id = "comp-sidebyside", class = "comparison-container",
                       tags$div(class = "comparison-side",
                                tags$div(class = "comparison-label", "Historical"),
                                tags$img(id = "comp-historical", src = "", draggable = "false")
-                               # draggable = "false" prevents the browser's default image drag behavior.
                       ),
                       tags$div(class = "comparison-side",
                                tags$div(class = "comparison-label", "Present Day"),
                                tags$img(id = "comp-modern", src = "", draggable = "false")
+                      )
+             ),
+             
+             # Slider overlay view (hidden by default)
+             tags$div(id = "comp-slider", class = "comp-slider-wrap",
+                      tags$div(class = "comp-slider-container",
+                               id = "comp-slider-container",
+                               tags$img(id = "slider-historical", class = "slider-historical", src = "", draggable = "false"),
+                               tags$img(id = "slider-modern", class = "slider-modern", src = "", draggable = "false"),
+                               tags$div(id = "comp-slider-handle", class = "comp-slider-handle"),
+                               tags$div(class = "comp-slider-label left", "Historical"),
+                               tags$div(class = "comp-slider-label right", "Present Day")
+                      )
+             ),
+             
+             # Toolbar: toggle buttons + download
+             tags$div(class = "comp-toolbar",
+                      tags$div(class = "comp-toolbar-btn active", id = "comp-mode-sidebyside",
+                               onclick = "setCompMode('sidebyside')",
+                               HTML("&#9638;&#9638; Side by Side")
+                      ),
+                      tags$div(class = "comp-toolbar-btn", id = "comp-mode-slider",
+                               onclick = "setCompMode('slider')",
+                               HTML("&#8660; Slider")
+                      ),
+                      tags$div(class = "comp-toolbar-btn download", id = "comp-download-btn",
+                               onclick = "downloadComparisonPhoto()",
+                               HTML("&#8615; Download Photo")
                       )
              )
     ),
@@ -2247,24 +2562,32 @@ ui <- page_navbar(
       var paintingsData = ", jsonlite::toJSON(paintings_data, auto_unbox = TRUE), ";
 
       // Opens the comparison lightbox with two images side by side.
+      var compModernUrl = ''; // stored for download
       window.openComparisonLightbox = function(historicalUrl, modernUrl) {
+        compModernUrl = modernUrl;
+        // Set images for side-by-side
         document.getElementById('comp-historical').src = historicalUrl;
         document.getElementById('comp-modern').src = modernUrl;
+        // Set images for slider
+        document.getElementById('slider-historical').src = historicalUrl;
+        document.getElementById('slider-modern').src = modernUrl;
+        // Reset to side-by-side mode
+        setCompMode('sidebyside');
+        // Reset slider position
+        resetSlider();
+        
         document.getElementById('comparison-lightbox').classList.add('active');
         document.body.style.overflow = 'hidden';
 
-        // Adds scroll-to-zoom behavior on both images simultaneously.
-        var sides = document.querySelectorAll('.comparison-side img');
+        // Adds scroll-to-zoom behavior on both side-by-side images simultaneously.
+        var sides = document.querySelectorAll('#comp-sidebyside .comparison-side img');
         sides.forEach(function(img) {
           img.addEventListener('wheel', function(e) {
             e.preventDefault();
-            // Prevents the page from scrolling when the user scrolls over the image.
             var current = parseFloat(img.style.transform.replace('scale(', '').replace(')', '') || 1);
             var delta = e.deltaY * -0.01;
             var scale = Math.max(1, Math.min(3, current + delta));
-            // Clamp zoom between 1x (normal) and 3x (maximum zoom).
             sides.forEach(function(s) { s.style.transform = 'scale(' + scale + ')'; });
-            // Apply the same zoom level to BOTH images so they stay in sync.
           });
         });
       };
@@ -2272,6 +2595,98 @@ ui <- page_navbar(
       window.closeComparisonLightbox = function() {
         document.getElementById('comparison-lightbox').classList.remove('active');
         document.body.style.overflow = '';
+        // Reset zoom on side-by-side images
+        document.querySelectorAll('#comp-sidebyside .comparison-side img').forEach(function(img) {
+          img.style.transform = '';
+        });
+      };
+
+      // -- COMPARISON MODE TOGGLE ------------------------------------------
+      window.setCompMode = function(mode) {
+        var sbs = document.getElementById('comp-sidebyside');
+        var slider = document.getElementById('comp-slider');
+        var btnSbs = document.getElementById('comp-mode-sidebyside');
+        var btnSlider = document.getElementById('comp-mode-slider');
+        
+        if (mode === 'slider') {
+          sbs.style.display = 'none';
+          slider.classList.add('active');
+          btnSbs.classList.remove('active');
+          btnSlider.classList.add('active');
+        } else {
+          sbs.style.display = '';
+          slider.classList.remove('active');
+          btnSbs.classList.add('active');
+          btnSlider.classList.remove('active');
+        }
+      };
+
+      // -- COMPARISON SLIDER -----------------------------------------------
+      function resetSlider() {
+        var handle = document.getElementById('comp-slider-handle');
+        var modern = document.getElementById('slider-modern');
+        if (handle) handle.style.left = '50%';
+        if (modern) modern.style.clipPath = 'inset(0 0 0 50%)';
+      }
+
+      (function() {
+        var dragging = false;
+        var container = null;
+
+        document.addEventListener('mousedown', function(e) {
+          container = document.getElementById('comp-slider-container');
+          if (!container || !container.contains(e.target)) return;
+          dragging = true;
+          updateSliderPosition(e, container);
+          e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', function(e) {
+          if (!dragging || !container) return;
+          updateSliderPosition(e, container);
+        });
+
+        document.addEventListener('mouseup', function() {
+          dragging = false;
+          container = null;
+        });
+
+        // Touch support
+        document.addEventListener('touchstart', function(e) {
+          container = document.getElementById('comp-slider-container');
+          if (!container || !container.contains(e.target)) return;
+          dragging = true;
+          updateSliderPosition(e.touches[0], container);
+        }, { passive: true });
+
+        document.addEventListener('touchmove', function(e) {
+          if (!dragging || !container) return;
+          updateSliderPosition(e.touches[0], container);
+        }, { passive: true });
+
+        document.addEventListener('touchend', function() {
+          dragging = false;
+          container = null;
+        });
+
+        function updateSliderPosition(e, cont) {
+          var rect = cont.getBoundingClientRect();
+          var x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+          var pct = (x / rect.width) * 100;
+          document.getElementById('comp-slider-handle').style.left = pct + '%';
+          document.getElementById('slider-modern').style.clipPath = 'inset(0 0 0 ' + pct + '%)';
+        }
+      })();
+
+      // -- DOWNLOAD COMPARISON PHOTO ---------------------------------------
+      window.downloadComparisonPhoto = function() {
+        if (!compModernUrl) return;
+        var link = document.createElement('a');
+        link.href = compModernUrl;
+        link.download = 'comparison-photo.jpg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       };
 
       // -- MUSEUM PHOTO LIGHTBOX (cycling) --------------------------------
@@ -2417,6 +2832,31 @@ ui <- page_navbar(
         );
       };
 
+      // -- CONTRIBUTE LANDING PAGE ------------------------------------------
+      // Shows the form and sets the submission type when a card is clicked.
+      var typeLabels = {
+        'landscape': 'Submit a Landscape Photo',
+        'museum_photo': 'Submit a Museum Photo',
+        'user_painting': 'Upload a Painting'
+      };
+
+      window.selectContributeType = function(type) {
+        // Set the hidden radio button
+        $('input[name=\"submit_type\"][value=\"' + type + '\"]').prop('checked', true).trigger('change');
+        // Update the form title
+        document.getElementById('contribute-form-type-label').textContent = typeLabels[type] || 'Submit';
+        // Show form, hide landing
+        document.getElementById('contribute-landing').style.display = 'none';
+        document.getElementById('contribute-form-wrap').style.display = '';
+        // Scroll to top of form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+
+      window.showContributeLanding = function() {
+        document.getElementById('contribute-landing').style.display = '';
+        document.getElementById('contribute-form-wrap').style.display = 'none';
+      };
+
       // -- FORM GEOLOCATION (one-shot) ------------------------------------
       // Uses getCurrentPosition to fill in the lat/lng fields on the
       // Contribute form. Unlike the map's watchPosition, this fires once.
@@ -2547,6 +2987,8 @@ server <- function(input, output, session) {
       updateSelectInput(session, "submit_painting", selected = as.character(val$id))
     }
     session$sendCustomMessage("switchTab", "Contribute")
+    # Show the form directly (skip the landing page) and set to landscape type
+    shinyjs::delay(100, shinyjs::runjs("selectContributeType('landscape');"))
   })
   
   # -- STATS DISPLAY --------------------------------------------------------
@@ -3273,6 +3715,9 @@ server <- function(input, output, session) {
       
       rv$submission_success <- TRUE
       # Triggers the success message to appear above the form.
+      
+      # Return to landing page after a short delay so the user sees the success message
+      shinyjs::delay(2000, shinyjs::runjs("showContributeLanding();"))
       
       # -- RESET FORM FIELDS --------------------------------------------
       # Clear all inputs back to their default/empty state after successful submit.
