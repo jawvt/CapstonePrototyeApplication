@@ -1039,6 +1039,16 @@ body {
   box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
 }
 
+.map-info-cta.travel {
+  border-color: var(--sage);
+  color: var(--sage-light);
+}
+
+.map-info-cta.travel:hover {
+  background: rgba(127, 168, 138, 0.15);
+  box-shadow: 0 4px 16px var(--sage-glow);
+}
+
 /* Responsive override for map layout */
 @media (max-width: 1024px) {
   .map-split-layout { grid-template-columns: 1fr; }
@@ -1813,6 +1823,195 @@ table.dataTable tbody tr.selected {
 }
 
 /* ==============================================
+   SPLASH SCREEN OVERLAY
+   ============================================== */
+.splash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background-color: #F3EDE4;
+  background-image:
+    linear-gradient(180deg, rgba(243,237,228,0.3) 0%, rgba(243,237,228,0.75) 100%),
+    url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Albert_Bierstadt_-_Among_the_Sierra_Nevada%2C_California_-_Google_Art_Project.jpg/2560px-Albert_Bierstadt_-_Among_the_Sierra_Nevada%2C_California_-_Google_Art_Project.jpg');
+  background-size: cover;
+  background-position: center;
+  transition: opacity 0.8s ease, visibility 0.8s ease;
+}
+
+.splash-overlay.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Floating ambient glow orbs */
+.splash-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  opacity: 0;
+  animation: orbFloat 12s ease-in-out infinite;
+}
+
+.splash-orb-1 {
+  width: 400px; height: 400px;
+  background: rgba(194, 113, 79, 0.1);
+  top: -5%; right: -5%;
+  animation-delay: 0s;
+  animation-duration: 14s;
+}
+
+.splash-orb-2 {
+  width: 350px; height: 350px;
+  background: rgba(95, 136, 104, 0.08);
+  bottom: -8%; left: -5%;
+  animation-delay: 3s;
+  animation-duration: 16s;
+}
+
+.splash-orb-3 {
+  width: 250px; height: 250px;
+  background: rgba(184, 148, 42, 0.07);
+  top: 40%; left: 30%;
+  animation-delay: 6s;
+  animation-duration: 18s;
+}
+
+.splash-orb-4 {
+  width: 300px; height: 300px;
+  background: rgba(194, 113, 79, 0.05);
+  bottom: 20%; right: 15%;
+  animation-delay: 9s;
+  animation-duration: 20s;
+}
+
+@keyframes orbFloat {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.8); }
+  25%  { opacity: 1; }
+  50%  { opacity: 1; transform: translate(30px, -20px) scale(1.1); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-20px, 15px) scale(0.8); }
+}
+
+.splash-inner {
+  text-align: center;
+  max-width: 720px;
+  padding: 48px;
+  animation: fadeUp 1s ease 0.2s both;
+}
+
+.splash-badge {
+  display: inline-block;
+  background: rgba(232, 151, 107, 0.15);
+  border: 1px solid rgba(232, 151, 107, 0.35);
+  color: var(--terra-light);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2.5px;
+  padding: 8px 24px;
+  border-radius: 50px;
+  margin-bottom: 24px;
+}
+
+.splash-title {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: clamp(42px, 7vw, 80px);
+  font-weight: 400;
+  color: #2D2D2D;
+  line-height: 1.08;
+  margin-bottom: 16px;
+  text-shadow: 0 2px 20px rgba(255,255,255,0.3);
+}
+
+.splash-title span {
+  background: linear-gradient(135deg, var(--terra-light), var(--amber));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.splash-tagline {
+  font-size: clamp(15px, 2vw, 19px);
+  color: rgba(45, 45, 45, 0.7);
+  max-width: 480px;
+  margin: 0 auto 40px;
+  line-height: 1.7;
+}
+
+.splash-nav {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+
+.splash-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 30px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  transition: all 0.3s var(--ease);
+  border: 1px solid;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.splash-nav-btn.primary {
+  background: linear-gradient(135deg, var(--terra) 0%, var(--terra-dark) 100%);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 4px 20px var(--terra-glow);
+}
+
+.splash-nav-btn.primary:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 8px 30px var(--terra-glow);
+}
+
+.splash-nav-btn.secondary {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.9);
+}
+
+.splash-nav-btn.secondary:hover {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.4);
+  transform: translateY(-2px);
+}
+
+.splash-hint {
+  font-size: 12px;
+  color: rgba(45, 45, 45, 0.3);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+@media (max-width: 768px) {
+  .splash-inner { padding: 32px 20px; }
+  .splash-nav { flex-direction: column; align-items: center; }
+}
+
+/* ==============================================
    SHINY SPECIFIC OVERRIDES
    ============================================== */
 .shiny-input-container {
@@ -1915,8 +2114,8 @@ body.light-mode {
   --glass-bg-light: rgba(0, 0, 0, 0.02);
   --glass-border: rgba(0, 0, 0, 0.12);
   --glass-border-subtle: rgba(0, 0, 0, 0.06);
-  --surface-dark: #F5F0EB;
-  --surface-dark-mid: #EDE7E0;
+  --surface-dark: #F3EDE4;
+  --surface-dark-mid: #EAE2D8;
   --surface-card: rgba(0, 0, 0, 0.04);
   --text-primary: #2D2D2D;
   --text-secondary: rgba(45, 45, 45, 0.7);
@@ -1938,7 +2137,7 @@ body.light-mode {
 }
 
 body.light-mode .navbar {
-  background: rgba(245, 240, 235, 0.8) !important;
+  background: rgba(243, 237, 228, 0.85) !important;
   border-bottom-color: rgba(0, 0, 0, 0.08) !important;
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
 }
@@ -1980,7 +2179,7 @@ body.light-mode .selectize-input {
 }
 
 body.light-mode .selectize-dropdown {
-  background: #F5F0EB !important;
+  background: #F3EDE4 !important;
   border-color: rgba(0, 0, 0, 0.1) !important;
 }
 
@@ -1998,10 +2197,34 @@ body.light-mode .admin-login-card .form-control {
 }
 
 body.light-mode ::-webkit-scrollbar-track {
-  background: #F5F0EB;
+  background: #F3EDE4;
 }
 body.light-mode ::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.15);
+}
+
+/* Light mode: comparison submitter badge uses amber like the year badge */
+body.light-mode .comparison-thumb-submitter {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: var(--amber);
+}
+
+/* Light mode: form placeholder text darker for readability */
+body.light-mode .form-card .form-control::placeholder,
+body.light-mode .form-card input::placeholder,
+body.light-mode .form-card textarea::placeholder {
+  color: rgba(45, 45, 45, 0.4) !important;
+  opacity: 1;
+}
+
+body.light-mode .form-card .selectize-input .item {
+  color: var(--text-primary) !important;
+}
+
+body.light-mode .form-card .selectize-input input::placeholder {
+  color: rgba(45, 45, 45, 0.4) !important;
+  opacity: 1;
 }
 
 /* ==============================================
@@ -2105,7 +2328,9 @@ ui <- page_navbar(
     # This meta tag makes the app responsive on mobile devices --
     # it tells the browser to scale the page to the device width.
     
-    tags$style(HTML(app_css))
+    tags$style(HTML(app_css)),
+    # Start in light mode by default
+    tags$script(HTML("document.addEventListener('DOMContentLoaded', function() { document.body.classList.add('light-mode'); });"))
     # Injects the custom CSS string (defined earlier as app_css) into the page.
   ),
   
@@ -2388,7 +2613,7 @@ ui <- page_navbar(
       class = "theme-toggle",
       title = "Toggle light/dark mode",
       onclick = "toggleTheme()",
-      HTML("&#9788;")
+      HTML("&#9789;")
     )
   ),
   
@@ -2469,6 +2694,26 @@ ui <- page_navbar(
   # The JavaScript functions below control when they appear.
   footer = tagList(
     
+    # -- SPLASH SCREEN OVERLAY -------------------------------------------
+    # Full-screen immersive intro. Fades away on click or nav button press.
+    tags$div(id = "splash-overlay", class = "splash-overlay",
+             onclick = "dismissSplash()",
+             tags$div(class = "splash-orb splash-orb-1"),
+             tags$div(class = "splash-orb splash-orb-2"),
+             tags$div(class = "splash-orb splash-orb-3"),
+             tags$div(class = "splash-orb splash-orb-4"),
+             tags$div(class = "splash-inner",
+                      tags$div(class = "splash-badge", "Art \u00b7 History \u00b7 Landscape"),
+                      tags$h1(class = "splash-title",
+                              HTML("Landscape<br>Through <span>Time</span>")
+                      ),
+                      tags$p(class = "splash-tagline",
+                             "Explore where painters set up their easels across America \u2014 and see how those landscapes look today."
+                      ),
+                      tags$div(class = "splash-hint", "Click anywhere to enter")
+             )
+    ),
+    
     # -- COMPARISON LIGHTBOX --------------------------------------------
     # A full-screen side-by-side view. Left = historical painting, Right = modern photo.
     tags$div(id = "comparison-lightbox",
@@ -2546,6 +2791,23 @@ ui <- page_navbar(
     # All the client-side interactivity: lightbox open/close, 3D card tilt,
     # tab switching, and fixing the Leaflet map rendering bug in tabs.
     tags$script(HTML(paste0("
+
+      // -- SPLASH SCREEN ---------------------------------------------------
+      window.dismissSplash = function() {
+        var splash = document.getElementById('splash-overlay');
+        if (!splash) return;
+        splash.classList.add('fade-out');
+        setTimeout(function() { splash.remove(); }, 800);
+      };
+
+      window.splashNavigate = function(tab) {
+        dismissSplash();
+        // Small delay so the fade starts before tab switch
+        setTimeout(function() {
+          var tabLink = document.querySelector('a.nav-link[data-value=\"' + tab + '\"]');
+          if (tabLink) tabLink.click();
+        }, 200);
+      };
 
       // -- LIGHT/DARK MODE TOGGLE ----------------------------------------
       window.toggleTheme = function() {
@@ -3456,6 +3718,11 @@ server <- function(input, output, session) {
                    HTML("View Museum &rarr;")
           )
         },
+        # "Get Directions" button — opens Google Maps with directions to this location
+        tags$div(class = "map-info-cta travel",
+                 onclick = sprintf("window.open('https://www.google.com/maps/dir/?api=1&destination=%f,%f', '_blank');", p$latitude, p$longitude),
+                 HTML("Get Directions &rarr;")
+        ),
         tags$div(class = "map-info-coords",
                  tags$div(class = "coord-box",
                           tags$div(class = "coord-label", "Latitude"),
@@ -3491,6 +3758,11 @@ server <- function(input, output, session) {
         tags$div(class = "map-info-cta",
                  onclick = sprintf("Shiny.setInputValue('go_compare_painting', {id: %d, t: Date.now()});", sub$painting_id),
                  HTML("View Comparison &rarr;")
+        ),
+        # "Get Directions" button
+        tags$div(class = "map-info-cta travel",
+                 onclick = sprintf("window.open('https://www.google.com/maps/dir/?api=1&destination=%f,%f', '_blank');", sub$latitude, sub$longitude),
+                 HTML("Get Directions &rarr;")
         ),
         tags$div(class = "map-info-coords",
                  tags$div(class = "coord-box",
@@ -3555,6 +3827,11 @@ server <- function(input, output, session) {
         tags$div(class = "map-info-cta museum",
                  onclick = sprintf("Shiny.setInputValue('go_to_painting', {id: %d, t: Date.now()});", p$id),
                  HTML("View Painting &rarr;")
+        ),
+        # "Get Directions" button — directions to the museum
+        tags$div(class = "map-info-cta travel",
+                 onclick = sprintf("window.open('https://www.google.com/maps/dir/?api=1&destination=%f,%f', '_blank');", p$museum_latitude, p$museum_longitude),
+                 HTML("Get Directions &rarr;")
         ),
         tags$div(class = "map-info-coords",
                  tags$div(class = "coord-box",
