@@ -2120,7 +2120,7 @@ ui <- page_navbar(
     
     tags$div(class = "section-header",
              tags$h2("Explore Locations"),
-             tags$p("See where Bierstadt set up his easel across America. Click a marker for details."),
+             tags$p("See where artists set up their easel across America. Click a marker for details."),
              tags$div(class = "accent-line")
     ),
     
