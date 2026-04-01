@@ -2983,9 +2983,10 @@ server <- function(input, output, session) {
   # in the Submit form dropdown and navigate to the Contribute tab.
   observeEvent(input$contribute_for_painting, {
     val <- input$contribute_for_painting
+    if (!is.null(val$id)) {
+      updateSelectInput(session, "submit_painting", selected = as.character(val$id))
+    }
     session$sendCustomMessage("switchTab", "Contribute")
-    # Show the form directly (skip the landing page) and set to landscape type
-    shinyjs::delay(100, shinyjs::runjs("selectContributeType('landscape');"))
   })
   
   # -- STATS DISPLAY --------------------------------------------------------
