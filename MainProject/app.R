@@ -3329,6 +3329,10 @@ server <- function(input, output, session) {
     # Get state polygon from the maps package
     state_map <- map("state", regions = tolower(st), plot = FALSE, fill = TRUE)
     
+    # Zoom to fit the actual state bounds
+    x_range <- range(state_map$x, na.rm = TRUE)
+    y_range <- range(state_map$y, na.rm = TRUE)
+    
     proxy %>%
       addPolygons(
         lng = state_map$x,
@@ -3340,12 +3344,13 @@ server <- function(input, output, session) {
         weight = 2,
         opacity = 0.8,
         options = pathOptions(interactive = FALSE)
+      ) %>%
+      flyToBounds(
+        lng1 = x_range[1],
+        lat1 = y_range[1],
+        lng2 = x_range[2],
+        lat2 = y_range[2]
       )
-    
-    sc <- state_centers[state_centers$state == st, ]
-    if (nrow(sc) == 0) {
-      proxy |> flyTo(lng = sc$lng[1], lat = sc$lat[1], zoom = 6)
-    }
     
     # Show paintings for this state in the info panel
     rv$selected_type <- "state_browse"
