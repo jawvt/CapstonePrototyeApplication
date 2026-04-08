@@ -1,18 +1,12 @@
 Future Updates to application
 ############################################
 
-Make the app more iphone accessible
+Clean up code
 
-Make map comparison button filter the same as the gallery filter button
-
-Users can add paintings?
-
-make map load quicker or find a homepage subsitute 
+clean up github repository 
 
 Make CSS file to clean up code (once we are done)
 
-add a use my location in the submission form, add a place for users to use camera
+add a glowing halo around a certain point when the view museam or view painting button is clicked from the pop up to differentiate the point from other points nearby
 
-potentially museam located in private collection instead of view museam
-
-slider feature for comparison?
+Multiple paitnings could be in a museum so figure that out
