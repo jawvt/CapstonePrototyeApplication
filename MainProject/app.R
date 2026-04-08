@@ -24,7 +24,7 @@ library(leaflet)
 library(htmltools)
 library(DT)
 library(shinyjs)
-
+library(maps)
 
 # ===========================================================================
 # DATABASE CONNECTION
@@ -3300,6 +3300,7 @@ server <- function(input, output, session) {
   # -- MAP FILTER TOGGLE -----------------------------------------------------
   observeEvent(input$set_map_filter, {
     new_filter <- input$set_map_filter
+    leafletProxy("main_map") |> clearGroup("state_highlight")
     if (new_filter %in% c("all", "submissions", "museums")) {
       rv$map_filter <- new_filter
       shinyjs::runjs(sprintf("
@@ -3313,21 +3314,38 @@ server <- function(input, output, session) {
   # -- STATE FILTER ON MAP ---------------------------------------------------
   observeEvent(input$map_state_filter, {
     st <- input$map_state_filter
+    proxy <- leafletProxy("main_map")
+    
+    #clearing previously highlighted states
+    proxy |> clearGroup("state_highlight")
+    
     if (is.null(st) || st == "") {
       rv$selected_marker <- NULL
       rv$selected_type <- NULL
-      leafletProxy("main_map") %>%
-        clearGroup("state_outline") %>%
-        setView(lng = -98.5, lat = 39.8, zoom = 4)
+      proxy |> setView(lng = -98.5, lat = 39.8, zoom = 4)
       return()
     }
     
-    sc <- state_centers[state_centers$state == st, ]
-    if (nrow(sc) == 0) return()
+    # Get state polygon from the maps package
+    state_map <- map("state", regions = tolower(st), plot = FALSE, fill = TRUE)
     
-    leafletProxy("main_map") %>%
-      clearGroup("state_outline") %>%
-      flyTo(lng = sc$lng[1], lat = sc$lat[1], zoom = 6)
+    proxy %>%
+      addPolygons(
+        lng = state_map$x,
+        lat = state_map$y,
+        group = "state_highlight",
+        fillColor = "#E8976B",
+        fillOpacity = 0.15,
+        color = "#E8976B",
+        weight = 2,
+        opacity = 0.8,
+        options = pathOptions(interactive = FALSE)
+      )
+    
+    sc <- state_centers[state_centers$state == st, ]
+    if (nrow(sc) == 0) {
+      proxy |> flyTo(lng = sc$lng[1], lat = sc$lat[1], zoom = 6)
+    }
     
     # Show paintings for this state in the info panel
     rv$selected_type <- "state_browse"
