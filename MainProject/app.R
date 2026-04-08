@@ -60,6 +60,9 @@ db_load_submissions <- function() {
       artist_name = character(),
       painting_year = character(),
       painting_context = character(),
+      state = character(),
+      region = character(),
+      location_notes = character(),
       stringsAsFactors = FALSE
     ))
   }
@@ -72,8 +75,9 @@ db_insert_submission <- function(sub_df) {
   dbExecute(con,
             "INSERT INTO submissions (submission_id, name, email, painting_id, photo_url,
      latitude, longitude, observations, submission_date, approval_status,
-     submission_type, painting_title, artist_name, painting_year, painting_context)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+     submission_type, painting_title, artist_name, painting_year, painting_context,
+     state, region, location_notes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
             params = list(
               sub_df$submission_id,
               sub_df$name,
@@ -89,7 +93,10 @@ db_insert_submission <- function(sub_df) {
               sub_df$painting_title,
               sub_df$artist_name,
               sub_df$painting_year,
-              sub_df$painting_context
+              sub_df$painting_context,
+              sub_df$state,
+              sub_df$region,
+              sub_df$location_notes
             )
   )
 }
@@ -120,6 +127,14 @@ db_delete_submission <- function(submission_id) {
 con <- get_db_con()
 paintings_data <- dbGetQuery(con, "SELECT * FROM paintings ORDER BY id")
 dbDisconnect(con)
+
+# State center coordinates for map zoom
+state_centers <- data.frame(
+  state = state.name,
+  lat = state.center$y,
+  lng = state.center$x,
+  stringsAsFactors = FALSE
+)
 
 
 # ===========================================================================
@@ -2239,64 +2254,7 @@ ui <- page_navbar(
   ),
   
   
-  # -- TAB 1: MAP ----------------------------------------------------------
-  nav_panel(
-    title = "Map",
-    icon = icon("map-location-dot"),
-    
-    tags$div(class = "section-header",
-             tags$h2("Explore Locations"),
-             tags$p("Click a marker for details."),
-             tags$div(class = "accent-line")
-    ),
-    
-    tags$div(class = "map-filter-bar",
-             tags$div(class = "map-filter-btn active", id = "map_filter_all",
-                      onclick = "Shiny.setInputValue('set_map_filter', 'all');",
-                      "All"
-             ),
-             tags$div(class = "map-filter-btn", id = "map_filter_paintings",
-                      onclick = "Shiny.setInputValue('set_map_filter', 'paintings');",
-                      tags$span(class = "legend-dot red"),
-                      "Paintings"
-             ),
-             tags$div(class = "map-filter-btn", id = "map_filter_submissions",
-                      onclick = "Shiny.setInputValue('set_map_filter', 'submissions');",
-                      tags$span(class = "legend-dot blue"),
-                      "Submissions"
-             ),
-             tags$div(class = "map-filter-btn", id = "map_filter_museums",
-                      onclick = "Shiny.setInputValue('set_map_filter', 'museums');",
-                      tags$span(class = "legend-dot", style = "background: #DC3545;"),
-                      "Museums"
-             ),
-             tags$div(class = "map-filter-btn locate-me-btn", id = "locate_me_btn",
-                      onclick = "startGeolocation();",
-                      HTML("&#9678; My Location")
-             ),
-             tags$div(class = "artist-filter-wrap",
-                      selectInput("map_artist_filter", NULL,
-                                  choices = c("All Artists" = "", sort(unique(paintings_data$artist))),
-                                  selected = "",
-                                  width = "180px")
-             )
-    ),
-    
-    tags$div(class = "map-split-layout",
-             tags$div(class = "map-container",
-                      leafletOutput("main_map", height = "100%")
-             ),
-             tags$div(id = "map-scroll-hint", class = "map-scroll-hint", style = "display: none;",
-                      tags$span(class = "hint-arrow", HTML("&#9660; Tap to see details below"))
-             ),
-             tags$div(id = "map-info-panel-el", class = "map-info-panel",
-                      uiOutput("map_info_content")
-             )
-    )
-  ),
-  
-  
-  # -- TAB 2: GALLERY ------------------------------------------------------
+  # -- TAB 1: GALLERY ------------------------------------------------------
   nav_panel(
     title = "Gallery",
     icon = icon("images"),
@@ -2317,6 +2275,64 @@ ui <- page_navbar(
     tags$div(class = "gallery-wrap",
              tags$div(id = "paintings-container", class = "paintings-grid",
                       uiOutput("painting_cards")
+             )
+    )
+  ),
+  
+  
+  # -- TAB 2: MAP ----------------------------------------------------------
+  nav_panel(
+    title = "Map",
+    icon = icon("map-location-dot"),
+    
+    tags$div(class = "section-header",
+             tags$h2("Explore Locations"),
+             tags$p("Click a marker for details."),
+             tags$div(class = "accent-line")
+    ),
+    
+    tags$div(class = "map-filter-bar",
+             tags$div(class = "map-filter-btn active", id = "map_filter_all",
+                      onclick = "Shiny.setInputValue('set_map_filter', 'all');",
+                      "All"
+             ),
+             tags$div(class = "map-filter-btn", id = "map_filter_submissions",
+                      onclick = "Shiny.setInputValue('set_map_filter', 'submissions');",
+                      tags$span(class = "legend-dot blue"),
+                      "Submissions"
+             ),
+             tags$div(class = "map-filter-btn", id = "map_filter_museums",
+                      onclick = "Shiny.setInputValue('set_map_filter', 'museums');",
+                      tags$span(class = "legend-dot", style = "background: #DC3545;"),
+                      "Museums"
+             ),
+             tags$div(class = "map-filter-btn locate-me-btn", id = "locate_me_btn",
+                      onclick = "startGeolocation();",
+                      HTML("&#9678; My Location")
+             ),
+             tags$div(class = "artist-filter-wrap",
+                      selectInput("map_artist_filter", NULL,
+                                  choices = c("All Artists" = "", sort(unique(paintings_data$artist))),
+                                  selected = "",
+                                  width = "180px")
+             ),
+             tags$div(class = "artist-filter-wrap",
+                      selectInput("map_state_filter", NULL,
+                                  choices = c("All States" = "", sort(unique(state.name))),
+                                  selected = "",
+                                  width = "160px")
+             )
+    ),
+    
+    tags$div(class = "map-split-layout",
+             tags$div(class = "map-container",
+                      leafletOutput("main_map", height = "100%")
+             ),
+             tags$div(id = "map-scroll-hint", class = "map-scroll-hint", style = "display: none;",
+                      tags$span(class = "hint-arrow", HTML("&#9660; Tap to see details below"))
+             ),
+             tags$div(id = "map-info-panel-el", class = "map-info-panel",
+                      uiOutput("map_info_content")
              )
     )
   ),
@@ -2404,6 +2420,19 @@ ui <- page_navbar(
                                  tags$div(class = "form-group",
                                           textInput("submit_painting_context", "Brief Description (optional)", placeholder = "Painted during his trip to the Rockies")
                                  )
+                        ),
+                        tags$div(class = "form-group",
+                                 selectInput("submit_state", "State",
+                                             choices = c("Select a state..." = "", sort(state.name), "Unknown" = "Unknown"),
+                                             selected = "")
+                        ),
+                        tags$div(class = "form-group",
+                                 textInput("submit_region", "Region / Landmark (optional)",
+                                           placeholder = "Sierra Nevada, Yellowstone, Hudson River Valley")
+                        ),
+                        tags$div(class = "form-group",
+                                 textInput("submit_location_notes", "Location Notes (optional)",
+                                           placeholder = "Believed to be near...")
                         )
                       ),
                       tags$div(class = "form-group",
@@ -2411,6 +2440,7 @@ ui <- page_navbar(
                                tags$div(class = "upload-zone",
                                         tags$div(class = "upload-icon", HTML("&#128247;")),
                                         tags$p(style = "color: var(--text-secondary); font-size: 14px;", "Take a photo or choose from library"),
+                                        tags$p(style = "color: var(--text-muted); font-size: 12px; margin-top: 4px;", "Max file size: 5MB (JPEG or PNG)"),
                                         fileInput("submit_photo", NULL, accept = c("image/png", "image/jpeg", "image/jpg"))
                                ),
                                tags$script(HTML("
@@ -2421,7 +2451,7 @@ ui <- page_navbar(
                                "))
                       ),
                       conditionalPanel(
-                        condition = "input.submit_type !== 'museum_photo'",
+                        condition = "input.submit_type === 'landscape'",
                         tags$div(class = "form-group",
                                  tags$div(style = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;",
                                           tags$label("GPS Coordinates", style = "margin-bottom: 0;"),
@@ -2533,8 +2563,8 @@ ui <- page_navbar(
     
     # Mobile top tab bar
     tags$div(id = "mobile-tab-bar", class = "mobile-tab-bar",
-             tags$button(class = "mob-tab active", `data-tab` = "Map", onclick = "mobileTabSwitch('Map')", "Map"),
-             tags$button(class = "mob-tab", `data-tab` = "Gallery", onclick = "mobileTabSwitch('Gallery')", "Gallery"),
+             tags$button(class = "mob-tab active", `data-tab` = "Gallery", onclick = "mobileTabSwitch('Gallery')", "Gallery"),
+             tags$button(class = "mob-tab", `data-tab` = "Map", onclick = "mobileTabSwitch('Map')", "Map"),
              tags$button(class = "mob-tab", `data-tab` = "Contribute", onclick = "mobileTabSwitch('Contribute')", "Contribute"),
              tags$button(class = "mob-tab", `data-tab` = "Compare", onclick = "mobileTabSwitch('Compare')", "Compare"),
              tags$button(class = "mob-tab", `data-tab` = "Admin Login", onclick = "mobileTabSwitch('Admin Login')", "Admin")
@@ -2570,6 +2600,14 @@ ui <- page_navbar(
              )
     ),
     
+    # Painting detail lightbox
+    tags$div(id = "painting-detail-lightbox",
+             style = "display:none; position:fixed; inset:0; background:var(--surface-dark); z-index:10001; overflow-y:auto; padding:60px 24px;",
+             tags$div(class = "lightbox-close", onclick = "closePaintingDetail()",
+                      style = "position:fixed; top:24px; right:24px; z-index:10002;", HTML("&times;")),
+             tags$div(id = "painting-detail-content", style = "max-width:800px; margin:0 auto;")
+    ),
+    
     # Museum photo lightbox
     tags$div(id = "museum-photo-lightbox",
              style = "display:none; position:fixed; inset:0; background:rgba(8,12,10,0.97); z-index:10001; align-items:center; justify-content:center; flex-direction:column; padding:60px 32px;",
@@ -2601,6 +2639,11 @@ ui <- page_navbar(
         if (!splash) return;
         splash.classList.add('fade-out');
         setTimeout(function() { splash.remove(); }, 800);
+        // Navigate to Gallery as default landing tab
+        setTimeout(function() {
+          var tabLink = document.querySelector('a.nav-link[data-value=\"Gallery\"]');
+          if (tabLink) tabLink.click();
+        }, 200);
       };
 
       window.splashNavigate = function(tab) {
@@ -2619,6 +2662,21 @@ ui <- page_navbar(
           document.body.classList.add('light-mode');
         }
       }
+
+      // Fire on every Shiny tab change (most reliable)
+      $(document).on('shiny:inputchanged', function(e) {
+        if (e.name === 'main_tabs') {
+          applyAdminTheme(e.value);
+        }
+      });
+
+      // Also re-apply when admin auth state changes (stays on same tab)
+      $(document).on('shiny:value', function(e) {
+        if (e.name === 'admin_authenticated') {
+          var activeTab = document.querySelector('.nav-link.active');
+          if (activeTab) applyAdminTheme(activeTab.getAttribute('data-value'));
+        }
+      });
 
       var paintingsData = ", jsonlite::toJSON(paintings_data, auto_unbox = TRUE), ";
 
@@ -2692,12 +2750,60 @@ ui <- page_navbar(
         if (e.key === 'Escape') {
           closeComparisonLightbox();
           closeMuseumLightbox();
+          closePaintingDetail();
         }
         if (document.getElementById('museum-photo-lightbox').style.display === 'flex') {
           if (e.key === 'ArrowLeft') museumLightboxNav(-1);
           if (e.key === 'ArrowRight') museumLightboxNav(1);
         }
       });
+
+      // -- PAINTING DETAIL LIGHTBOX ----------------------------------------
+      window.openPaintingDetail = function(id) {
+        var p = null;
+        for (var i = 0; i < paintingsData.length; i++) {
+          if (paintingsData[i].id === id) { p = paintingsData[i]; break; }
+        }
+        if (!p) return;
+
+        var state = p.state || '';
+        var region = p.region || '';
+        var locationNotes = p.location_notes || '';
+        var locParts = [];
+        if (state) locParts.push(state);
+        if (region) locParts.push(region);
+        var locText = locParts.length > 0 ? locParts.join(' — ') : 'Location Undiscovered';
+
+        var html = '<div style=\"text-align:center; margin-bottom:24px;\">' +
+          '<img src=\"' + p.image_url + '\" alt=\"' + p.title + '\" style=\"max-width:100%; max-height:50vh; border-radius:var(--radius-md); box-shadow:var(--shadow-glass-lg); object-fit:contain;\">' +
+          '</div>' +
+          '<h2 style=\"font-family:DM Serif Display,Georgia,serif; font-size:32px; color:var(--text-primary); margin-bottom:8px;\">' + p.title + '</h2>' +
+          '<div style=\"color:var(--terra-light); font-size:14px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px;\">' + p.artist + ' | ' + p.year + '</div>' +
+          '<div style=\"display:inline-block; background:var(--glass-bg); border:1px solid var(--glass-border-subtle); padding:6px 16px; border-radius:20px; font-size:12px; font-weight:700; color:' + (locParts.length > 0 ? 'var(--sage-light)' : 'var(--amber)') + '; margin-bottom:20px;\">' +
+          (locParts.length > 0 ? '&#128205; ' : '&#128270; ') + locText + '</div>';
+
+        if (locationNotes) {
+          html += '<div style=\"background:var(--glass-bg-light); border-left:3px solid var(--sage); padding:12px 16px; border-radius:0 var(--radius-sm) var(--radius-sm) 0; margin-bottom:20px; font-size:13px; color:var(--text-secondary); font-style:italic;\">' + locationNotes + '</div>';
+        }
+
+        if (p.context) {
+          html += '<p style=\"color:var(--text-secondary); font-size:15px; line-height:1.7; margin-bottom:24px;\">' + p.context + '</p>';
+        }
+
+        html += '<div style=\"display:flex; gap:12px; flex-wrap:wrap; justify-content:center;\">' +
+          '<div class=\"map-info-cta\" onclick=\"closePaintingDetail(); Shiny.setInputValue(&#39;go_compare_painting&#39;, {id: ' + p.id + ', t: Date.now()});\">View Comparisons &rarr;</div>' +
+          '<div class=\"map-info-cta travel\" onclick=\"closePaintingDetail(); Shiny.setInputValue(&#39;contribute_for_painting&#39;, {id: ' + p.id + ', t: Date.now()});\">+ Contribute</div>' +
+          '</div>';
+
+        document.getElementById('painting-detail-content').innerHTML = html;
+        document.getElementById('painting-detail-lightbox').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+      };
+
+      window.closePaintingDetail = function() {
+        document.getElementById('painting-detail-lightbox').style.display = 'none';
+        document.body.style.overflow = '';
+      };
 
       // -- 3D CARD TILT EFFECT ---------------------------------------------
       function initTilt() {
@@ -3059,6 +3165,7 @@ server <- function(input, output, session) {
       tags$div(class = "painting-card",
                `data-title` = tolower(p$title),
                `data-artist` = tolower(p$artist),
+               onclick = sprintf("openPaintingDetail(%d)", p$id),
                
                tags$div(class = "painting-card-img-wrap",
                         tags$img(src = p$image_url, class = "painting-image", alt = p$title),
@@ -3079,6 +3186,18 @@ server <- function(input, output, session) {
                tags$div(class = "painting-info",
                         tags$h3(class = "painting-title", p$title),
                         tags$div(class = "painting-meta", paste0(p$artist)),
+                        {
+                          loc_parts <- c()
+                          if ("state" %in% names(p) && !is.na(p$state) && p$state != "") loc_parts <- c(loc_parts, p$state)
+                          if ("region" %in% names(p) && !is.na(p$region) && p$region != "") loc_parts <- c(loc_parts, p$region)
+                          if (length(loc_parts) > 0) {
+                            tags$div(style = "font-size: 12px; color: var(--sage-light); margin-bottom: 8px;",
+                                     HTML(paste0("&#128205; ", paste(loc_parts, collapse = " — "))))
+                          } else if (approved_count == 0) {
+                            tags$div(style = "font-size: 12px; color: var(--amber); margin-bottom: 8px;",
+                                     HTML("Location Undiscovered"))
+                          }
+                        },
                         tags$p(class = "painting-context", p$context),
                         tags$div(class = "painting-card-footer",
                                  tags$div(class = "submission-count-badge",
@@ -3127,18 +3246,6 @@ server <- function(input, output, session) {
     }
     
     proxy <- leafletProxy("main_map")
-    
-    proxy %>% clearGroup("paintings")
-    if (filter %in% c("all", "paintings") && nrow(filtered_paintings) > 0) {
-      proxy %>% addCircleMarkers(
-        data = filtered_paintings,
-        lng = ~longitude, lat = ~latitude,
-        radius = 8, color = "#A85D3F", fillColor = "#C2714F", fillOpacity = 0.85,
-        weight = 2, stroke = TRUE, group = "paintings",
-        layerId = ~paste0("painting_", id), label = ~title,
-        labelOptions = labelOptions(style = list("font-weight" = "600", "font-family" = "DM Sans, sans-serif"), textsize = "13px", direction = "top", offset = c(0, -12))
-      )
-    }
     
     proxy %>% clearGroup("submissions")
     if (filter %in% c("all", "submissions") && nrow(approved) > 0) {
@@ -3193,13 +3300,38 @@ server <- function(input, output, session) {
   # -- MAP FILTER TOGGLE -----------------------------------------------------
   observeEvent(input$set_map_filter, {
     new_filter <- input$set_map_filter
-    if (new_filter %in% c("all", "paintings", "submissions", "museums")) {
+    if (new_filter %in% c("all", "submissions", "museums")) {
       rv$map_filter <- new_filter
       shinyjs::runjs(sprintf("
         document.querySelectorAll('.map-filter-btn').forEach(function(btn) { btn.classList.remove('active'); });
         document.getElementById('map_filter_%s').classList.add('active');
       ", new_filter))
     }
+  })
+  
+  
+  # -- STATE FILTER ON MAP ---------------------------------------------------
+  observeEvent(input$map_state_filter, {
+    st <- input$map_state_filter
+    if (is.null(st) || st == "") {
+      rv$selected_marker <- NULL
+      rv$selected_type <- NULL
+      leafletProxy("main_map") %>%
+        clearGroup("state_outline") %>%
+        setView(lng = -98.5, lat = 39.8, zoom = 4)
+      return()
+    }
+    
+    sc <- state_centers[state_centers$state == st, ]
+    if (nrow(sc) == 0) return()
+    
+    leafletProxy("main_map") %>%
+      clearGroup("state_outline") %>%
+      flyTo(lng = sc$lng[1], lat = sc$lat[1], zoom = 6)
+    
+    # Show paintings for this state in the info panel
+    rv$selected_type <- "state_browse"
+    rv$selected_marker <- st
   })
   
   
@@ -3307,14 +3439,6 @@ server <- function(input, output, session) {
     if (nrow(p) == 0) return()
     p <- p[1, ]
     if (is.na(p$latitude) || is.na(p$longitude)) return()
-    
-    if (!rv$map_filter %in% c("all", "paintings")) {
-      rv$map_filter <- "all"
-      shinyjs::runjs("
-        document.querySelectorAll('.map-filter-btn').forEach(function(btn) { btn.classList.remove('active'); });
-        document.getElementById('map_filter_all').classList.add('active');
-      ")
-    }
     
     rv$selected_marker <- pid
     rv$selected_type <- "painting"
@@ -3484,6 +3608,50 @@ server <- function(input, output, session) {
                  )
         )
       )
+    } else if (rv$selected_type == "state_browse") {
+      st <- rv$selected_marker
+      
+      # Filter paintings by state if column exists
+      state_paintings <- if ("state" %in% names(paintings_data)) {
+        paintings_data[!is.na(paintings_data$state) & paintings_data$state == st, ]
+      } else {
+        data.frame()
+      }
+      
+      # Also find submissions for this state
+      state_subs <- rv$submissions[rv$submissions$approval_status == "Approved" &
+                                     !is.na(rv$submissions$state) &
+                                     rv$submissions$state == st, ]
+      
+      painting_cards <- if (nrow(state_paintings) > 0) {
+        lapply(1:nrow(state_paintings), function(i) {
+          p <- state_paintings[i, ]
+          ap_count <- nrow(rv$submissions[rv$submissions$approval_status == "Approved" &
+                                            rv$submissions$painting_id == p$id, ])
+          tags$div(style = "display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--glass-border-subtle); cursor: pointer;",
+                   onclick = sprintf("Shiny.setInputValue('go_to_painting', {id: %d, t: Date.now()});", p$id),
+                   tags$img(src = p$image_url, style = "width: 60px; height: 40px; object-fit: cover; border-radius: 8px; flex-shrink: 0;"),
+                   tags$div(
+                     tags$div(style = "font-weight: 700; font-size: 14px; color: var(--text-primary);", p$title),
+                     tags$div(style = "font-size: 12px; color: var(--text-muted);",
+                              paste0(p$artist, " | ", ap_count, " submission", ifelse(ap_count != 1, "s", "")))
+                   )
+          )
+        })
+      } else {
+        list(tags$p(style = "color: var(--text-muted); font-size: 13px; font-style: italic;",
+                    "No paintings catalogued for this state yet. Upload one in the Contribute tab!"))
+      }
+      
+      tagList(
+        tags$div(class = "map-info-header",
+                 tags$div(class = "map-info-dot painting"),
+                 tags$span(class = "map-info-type-label", "State Explorer")
+        ),
+        tags$h3(class = "map-info-title", st),
+        tags$div(class = "map-info-meta", paste0(nrow(state_paintings), " painting", ifelse(nrow(state_paintings) != 1, "s", ""), " catalogued")),
+        tags$div(style = "margin-top: 8px;", painting_cards)
+      )
     }
   })
   
@@ -3547,12 +3715,16 @@ server <- function(input, output, session) {
         rv$submission_error <- "Please enter the artist name."
         return()
       }
+      if (is.null(input$submit_state) || input$submit_state == "" || input$submit_state == "Unknown") {
+        rv$submission_error <- "Please select a state for the painting location."
+        return()
+      }
     }
     if (is.null(input$submit_photo)) {
       rv$submission_error <- "Please upload a photo."
       return()
     }
-    if (sub_type != "museum_photo" && (is.na(input$submit_latitude) || is.na(input$submit_longitude))) {
+    if (sub_type == "landscape" && (is.na(input$submit_latitude) || is.na(input$submit_longitude))) {
       rv$submission_error <- "Please enter GPS coordinates or use the location button."
       return()
     }
@@ -3577,8 +3749,8 @@ server <- function(input, output, session) {
         email = input$submit_email,
         painting_id = pid,
         photo_url = base64_image,
-        latitude = if (sub_type == "museum_photo") NA_real_ else input$submit_latitude,
-        longitude = if (sub_type == "museum_photo") NA_real_ else input$submit_longitude,
+        latitude = if (sub_type == "landscape") input$submit_latitude else NA_real_,
+        longitude = if (sub_type == "landscape") input$submit_longitude else NA_real_,
         observations = input$submit_observations,
         submission_date = as.character(Sys.Date()),
         approval_status = "Pending",
@@ -3587,6 +3759,9 @@ server <- function(input, output, session) {
         artist_name = if (sub_type == "user_painting") trimws(input$submit_artist_name) else NA_character_,
         painting_year = if (sub_type == "user_painting") trimws(input$submit_painting_year) else NA_character_,
         painting_context = if (sub_type == "user_painting") trimws(input$submit_painting_context) else NA_character_,
+        state = if (sub_type == "user_painting") input$submit_state else NA_character_,
+        region = if (sub_type == "user_painting") trimws(input$submit_region) else NA_character_,
+        location_notes = if (sub_type == "user_painting") trimws(input$submit_location_notes) else NA_character_,
         stringsAsFactors = FALSE
       )
       
