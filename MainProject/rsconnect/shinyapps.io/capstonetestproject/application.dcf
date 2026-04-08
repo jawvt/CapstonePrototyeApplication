@@ -1,0 +1,13 @@
+name: application
+title: application
+username: capstonetestproject
+account: capstonetestproject
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17023033
+bundleId: 11791043
+url: https://capstonetestproject.shinyapps.io/application/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: AlexTestApp.R|app_data/approved.rds|app_data/submissions.rds|BPaintings.csv|CommitDialouge|database-migration-guide.md|FutureUpdates|Passwords|SupabaseInstructions|Tips|www/styles.css
