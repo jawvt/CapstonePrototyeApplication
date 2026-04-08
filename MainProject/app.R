@@ -1,16 +1,20 @@
 ############################################
 #
 # Landscape Through Time
-# Alex, Ben Emily
+# Alex, Ben, Emily
 # Code started 2/18/26
-# 
-# Project Description:
 #
-# Interactive application where users are able to view historical art located in desired regions,
-# and have the ability to find the physical locations of the paintings using an interactive map-based design.
-# 
+# Interactive application where users are able
+# to view historical art located in desired regions,
+# and have the ability to find the physical locations
+# of the paintings using an interactive map-based design.
 #
 ############################################
+
+
+# ===========================================================================
+# LIBRARIES
+# ===========================================================================
 
 library(DBI)
 library(RPostgres)
@@ -21,43 +25,25 @@ library(htmltools)
 library(DT)
 library(shinyjs)
 
-############################################
-# Supabase Database Connection
-# Connects to a PostgreSQL database hosted on Supabase.
-# Replaces the old local .rds file storage with a remote database.
-#
-# Tables used:
-#   - paintings: all Bierstadt painting data (replaces BPaintings.csv)
-#   - submissions: user photo submissions with approval_status column
-#                  (replaces both submissions.rds and approved.rds)
-#
-# IMPORTANT: Requires a .Renviron file in the app directory with:
-#   SUPABASE_HOST=your-project.supabase.co
-#   SUPABASE_DB=postgres
-#   SUPABASE_USER=postgres.your-project
-#   SUPABASE_PASSWORD=your-password
-############################################
+
+# ===========================================================================
+# DATABASE CONNECTION
+# ===========================================================================
 
 readRenviron(".Renviron")
 
-# Helper: create a fresh database connection.
-# Called whenever we need to read or write. Each operation opens a connection,
-# does its work, and closes it — avoids stale/dropped connection issues.
 get_db_con <- function() {
   dbConnect(
     Postgres(),
-    host     = Sys.getenv("SUPABASE_HOST"),
-    port     = 5432,
-    dbname   = Sys.getenv("SUPABASE_DB"),
-    user     = Sys.getenv("SUPABASE_USER"),
-    password = Sys.getenv("SUPABASE_PASSWORD"),
-    sslmode  = "require"
+    host       = Sys.getenv("SUPABASE_HOST"),
+    port       = as.integer(Sys.getenv("SUPABASE_PORT", "5432")),
+    dbname     = Sys.getenv("SUPABASE_DB"),
+    user       = Sys.getenv("SUPABASE_USER"),
+    password   = Sys.getenv("SUPABASE_PASSWORD"),
+    gssencmode = "disable"
   )
 }
 
-# Helper: fetch all submissions from the database.
-# Returns a data frame with the same columns as the old .rds files.
-# If the table is empty, returns an empty data frame with correct columns.
 db_load_submissions <- function() {
   con <- get_db_con()
   on.exit(dbDisconnect(con))
@@ -69,22 +55,21 @@ db_load_submissions <- function() {
       latitude = numeric(), longitude = numeric(),
       observations = character(), submission_date = character(),
       approval_status = character(),
-      submission_type = character(),    # "landscape", "museum_photo", or "user_painting"
-      painting_title = character(),     # only for user_painting submissions
-      artist_name = character(),        # only for user_painting submissions
-      painting_year = character(),      # only for user_painting submissions
-      painting_context = character(),   # only for user_painting submissions
+      submission_type = character(),
+      painting_title = character(),
+      artist_name = character(),
+      painting_year = character(),
+      painting_context = character(),
       stringsAsFactors = FALSE
     ))
   }
   result
 }
 
-# Helper: insert a single new submission row into the database.
 db_insert_submission <- function(sub_df) {
   con <- get_db_con()
   on.exit(dbDisconnect(con))
-  dbExecute(con, 
+  dbExecute(con,
             "INSERT INTO submissions (submission_id, name, email, painting_id, photo_url,
      latitude, longitude, observations, submission_date, approval_status,
      submission_type, painting_title, artist_name, painting_year, painting_context)
@@ -109,7 +94,6 @@ db_insert_submission <- function(sub_df) {
   )
 }
 
-# Helper: update the approval_status of a submission by its submission_id.
 db_update_status <- function(submission_id, new_status) {
   con <- get_db_con()
   on.exit(dbDisconnect(con))
@@ -119,7 +103,6 @@ db_update_status <- function(submission_id, new_status) {
   )
 }
 
-# Helper: delete a submission by its submission_id.
 db_delete_submission <- function(submission_id) {
   con <- get_db_con()
   on.exit(dbDisconnect(con))
@@ -129,52 +112,23 @@ db_delete_submission <- function(submission_id) {
   )
 }
 
-############################################
-# Painting Data
-# Loads painting data from Supabase instead of local CSV.
-# This runs once when the app starts.
-############################################
+
+# ===========================================================================
+# PAINTING DATA
+# ===========================================================================
 
 con <- get_db_con()
 paintings_data <- dbGetQuery(con, "SELECT * FROM paintings ORDER BY id")
 dbDisconnect(con)
 
-############################################
-# Custom CSS
-# Claude AI provided support
-# Builds the website
-#
-# TABLE OF CONTENTS:
-#
-# Root
-# Reset and Base
-# Navbar Overrides
-# Tab Content Wrapper
-# Hero/Home Tab
-# Button Styles
-# Section Headers
-# Painting Cards
-# Map
-# Comparisons
-# Lightbox (Paintings)
-# Lightbox (Comparisons)
-# Admin
-# Responsive (mobile)
-# Alerts
-# Shiny Specific Overrides
 
-
-
-############################################
+# ===========================================================================
+# CUSTOM CSS
+# ===========================================================================
 
 app_css <- "
 /* ==============================================
-   GLASSMORPHISM THEME
-   Landscape Through Time
-
-   KEY CONCEPT: Frosted-glass panels floating over
-   rich landscape photography. Translucent layers,
-   soft blurs, light refractions, and luminous accents.
+   GLASSMORPHISM THEME — Landscape Through Time
 
    TABLE OF CONTENTS:
    - CSS Variables
@@ -190,17 +144,22 @@ app_css <- "
    - Comparisons
    - Lightbox (Paintings)
    - Lightbox (Comparisons)
+   - Contribute Landing Cards
    - Admin
    - Alerts
    - Responsive
+   - Splash Screen
+   - Search Bar
    - Shiny Specific Overrides
+   - Light/Dark Mode Toggle
+   - Light Mode Overrides
+   - Mobile Tab Bar
+   - Map Scroll Hint
+   - Gallery Badges
    ============================================== */
 
-/* ==============================================
-   CSS VARIABLES - GLASSMORPHISM PALETTE
-   ============================================== */
+/* --- CSS Variables ---------------------------------------- */
 :root {
-  /* Glass effect values */
   --glass-bg: rgba(255, 255, 255, 0.12);
   --glass-bg-strong: rgba(255, 255, 255, 0.18);
   --glass-bg-light: rgba(255, 255, 255, 0.06);
@@ -209,7 +168,6 @@ app_css <- "
   --glass-blur: 20px;
   --glass-blur-heavy: 40px;
 
-  /* Accent colors - luminous versions of the original earthy tones */
   --terra: #E8976B;
   --terra-dark: #C4724E;
   --terra-light: #F2B896;
@@ -222,32 +180,26 @@ app_css <- "
   --amber-light: #EDD07A;
   --amber-glow: rgba(226, 185, 76, 0.3);
 
-  /* Surfaces */
   --surface-dark: #0f1a14;
   --surface-dark-mid: #152420;
   --surface-card: rgba(255, 255, 255, 0.08);
 
-  /* Text */
   --text-primary: #FFFFFF;
   --text-secondary: rgba(255, 255, 255, 0.7);
   --text-muted: rgba(255, 255, 255, 0.45);
 
-  /* Layout */
   --radius-sm: 12px;
   --radius-md: 20px;
   --radius-lg: 28px;
   --radius-xl: 36px;
 
-  /* Shadows */
   --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.25);
   --shadow-glass-lg: 0 16px 48px rgba(0, 0, 0, 0.3);
   --shadow-glow: 0 0 40px rgba(232, 151, 107, 0.15);
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ==============================================
-   RESET & BASE
-   ============================================== */
+/* --- Reset & Base ---------------------------------------- */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
@@ -259,10 +211,7 @@ body {
   overflow-x: hidden;
 }
 
-/* ==============================================
-   NAVBAR OVERRIDES
-   Translucent glass bar with blur effect
-   ============================================== */
+/* --- Navbar Overrides ------------------------------------ */
 .navbar {
   background: rgba(15, 26, 20, 0.6) !important;
   backdrop-filter: blur(var(--glass-blur-heavy));
@@ -303,22 +252,11 @@ body {
   background: rgba(232, 151, 107, 0.08);
 }
 
-.navbar-toggler {
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  color: var(--text-secondary) !important;
-  margin-right: 16px;
-}
+.navbar-toggler { display: none !important; }
+.navbar-toggler-icon { display: none !important; }
 
-.navbar-toggler-icon {
-  filter: invert(1);
-}
-
-/* ==============================================
-   TAB CONTENT WRAPPER
-   ============================================== */
-.tab-content {
-  background: var(--surface-dark);
-}
+/* --- Tab Content Wrapper --------------------------------- */
+.tab-content { background: var(--surface-dark); }
 
 .tab-pane {
   animation: tabFadeIn 0.4s var(--ease);
@@ -331,10 +269,7 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ==============================================
-   HERO / HOME TAB
-   Glass card floating over landscape background
-   ============================================== */
+/* --- Hero / Home Tab ------------------------------------- */
 .hero-banner {
   position: relative;
   background:
@@ -349,10 +284,7 @@ body {
   overflow: hidden;
 }
 
-.hero-bg-pattern {
-  position: absolute;
-  inset: 0;
-}
+.hero-bg-pattern { position: absolute; inset: 0; }
 
 .hero-glow {
   position: absolute;
@@ -383,7 +315,6 @@ body {
   opacity: 0.3;
 }
 
-/* Hero content sits inside a frosted glass card */
 .hero-inner {
   position: relative;
   z-index: 2;
@@ -452,7 +383,6 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Stats strip: single centered glass box (paintings only) */
 .stats-strip {
   display: flex;
   justify-content: center;
@@ -492,10 +422,7 @@ body {
   font-weight: 600;
 }
 
-/* ==============================================
-   BUTTON STYLES
-   Glass-styled buttons with glow effects
-   ============================================== */
+/* --- Button Styles --------------------------------------- */
 .btn-terra {
   background: linear-gradient(135deg, var(--terra) 0%, var(--terra-dark) 100%);
   color: var(--text-primary) !important;
@@ -518,9 +445,7 @@ body {
   box-shadow: 0 8px 30px var(--terra-glow);
 }
 
-.btn-terra:active {
-  transform: translateY(0) scale(0.98);
-}
+.btn-terra:active { transform: translateY(0) scale(0.98); }
 
 .btn-sage {
   background: var(--glass-bg);
@@ -562,10 +487,7 @@ body {
   box-shadow: 0 8px 30px var(--terra-glow);
 }
 
-/* ==============================================
-   SECTION HEADERS
-   Light text on dark background with glowing accent
-   ============================================== */
+/* --- Section Headers ------------------------------------- */
 .section-header {
   text-align: center;
   padding: 80px 24px 48px;
@@ -596,10 +518,7 @@ body {
   box-shadow: 0 0 20px var(--terra-glow);
 }
 
-/* ==============================================
-   PAINTING CARDS
-   Frosted glass cards with glowing borders on hover
-   ============================================== */
+/* --- Painting Cards -------------------------------------- */
 .gallery-wrap {
   padding: 0 24px 80px;
   max-width: 1400px;
@@ -648,9 +567,7 @@ body {
   transition: opacity 0.4s;
 }
 
-.painting-card:hover .painting-card-img-wrap::after {
-  opacity: 1;
-}
+.painting-card:hover .painting-card-img-wrap::after { opacity: 1; }
 
 .painting-image {
   width: 100%;
@@ -660,9 +577,7 @@ body {
   transition: transform 0.6s var(--ease);
 }
 
-.painting-card:hover .painting-image {
-  transform: scale(1.05);
-}
+.painting-card:hover .painting-image { transform: scale(1.05); }
 
 .painting-card-badge {
   position: absolute;
@@ -733,14 +648,9 @@ body {
   white-space: nowrap;
 }
 
-.painting-card:hover .painting-card-cta {
-  gap: 10px;
-}
+.painting-card:hover .painting-card-cta { gap: 10px; }
 
-/* ==============================================
-   MAP - SPLIT LAYOUT
-   Glass info panel, dark map container
-   ============================================== */
+/* --- Map (Split Layout) ---------------------------------- */
 .map-split-layout {
   display: grid;
   grid-template-columns: 3fr 1fr;
@@ -765,7 +675,6 @@ body {
   border-radius: var(--radius-lg);
 }
 
-/* Map Info Panel - frosted glass */
 .map-info-panel {
   background: var(--glass-bg-strong);
   backdrop-filter: blur(var(--glass-blur-heavy));
@@ -894,7 +803,6 @@ body {
   color: var(--text-primary);
 }
 
-/* Map Filter Bar */
 .map-filter-bar {
   display: flex;
   gap: 8px;
@@ -941,7 +849,6 @@ body {
 .legend-dot.red { background: var(--terra); }
 .legend-dot.blue { background: #60A5FA; }
 
-/* Locate Me button */
 .locate-me-btn.tracking {
   border-color: #34D399 !important;
   color: #34D399 !important;
@@ -949,7 +856,6 @@ body {
   box-shadow: 0 0 12px rgba(52, 211, 153, 0.3);
 }
 
-/* Artist filter dropdown in map filter bar */
 .artist-filter-wrap {
   display: inline-flex;
   align-items: center;
@@ -984,8 +890,6 @@ body {
   margin-top: 4px !important;
 }
 
-
-/* Submission info extras */
 .map-info-observations {
   background: var(--glass-bg-light);
   border-left: 3px solid #60A5FA;
@@ -1004,7 +908,6 @@ body {
   margin-bottom: 16px;
 }
 
-/* View Comparison button inside the map info panel */
 .map-info-cta {
   display: inline-flex;
   align-items: center;
@@ -1049,16 +952,13 @@ body {
   box-shadow: 0 4px 16px var(--sage-glow);
 }
 
-/* Responsive override for map layout */
 @media (max-width: 1024px) {
   .map-split-layout { grid-template-columns: 1fr; }
   .map-info-panel { height: auto; max-height: 500px; }
+  .map-container { height: 500px; }
 }
 
-/* ==============================================
-   FORM
-   Glass card with translucent inputs
-   ============================================== */
+/* --- Form ------------------------------------------------ */
 .form-wrap {
   padding: 0 24px 60px;
   max-width: 660px;
@@ -1075,9 +975,7 @@ body {
   box-shadow: var(--shadow-glass);
 }
 
-.form-card .form-group {
-  margin-bottom: 24px;
-}
+.form-card .form-group { margin-bottom: 24px; }
 
 .form-card label,
 .form-card .control-label {
@@ -1137,10 +1035,7 @@ body {
   margin-bottom: 8px;
 }
 
-/* ==============================================
-   COMPARISONS
-   Glass-bordered thumbnails
-   ============================================== */
+/* --- Comparisons ----------------------------------------- */
 .comparison-wrap {
   padding: 0 24px 60px;
   max-width: 1400px;
@@ -1177,9 +1072,7 @@ body {
   transition: transform 0.5s var(--ease);
 }
 
-.comparison-thumb:hover img {
-  transform: scale(1.06);
-}
+.comparison-thumb:hover img { transform: scale(1.06); }
 
 .comparison-thumb-overlay {
   position: absolute;
@@ -1192,9 +1085,7 @@ body {
   transition: opacity 0.3s;
 }
 
-.comparison-thumb:hover .comparison-thumb-overlay {
-  opacity: 1;
-}
+.comparison-thumb:hover .comparison-thumb-overlay { opacity: 1; }
 
 .comparison-thumb-label {
   color: var(--text-primary);
@@ -1211,7 +1102,6 @@ body {
   border: 1px solid var(--glass-border-subtle);
 }
 
-/* Submitter name badge in top-left of comparison thumbnails */
 .comparison-thumb-submitter {
   position: absolute;
   top: 12px;
@@ -1236,7 +1126,6 @@ body {
   font-size: 18px;
 }
 
-/* Filter banner shown when Compare tab is filtered to a specific painting */
 .compare-filter-banner {
   display: flex;
   align-items: center;
@@ -1260,9 +1149,7 @@ body {
   font-size: 14px;
 }
 
-.compare-filter-text strong {
-  color: var(--text-primary);
-}
+.compare-filter-text strong { color: var(--text-primary); }
 
 .compare-filter-see-all {
   display: inline-flex;
@@ -1287,10 +1174,7 @@ body {
   box-shadow: 0 4px 16px var(--terra-glow);
 }
 
-/* ==============================================
-   LIGHTBOX CLOSE BUTTON
-   Used by the comparison lightbox
-   ============================================== */
+/* --- Lightbox Close Button ------------------------------- */
 .lightbox-close {
   position: absolute;
   top: 24px;
@@ -1317,10 +1201,7 @@ body {
   background: var(--glass-bg-strong);
 }
 
-/* ==============================================
-   COMPARISON LIGHTBOX (Side-by-side)
-   Glass labels over dark split view
-   ============================================== */
+/* --- Comparison Lightbox (Side-by-side) ------------------ */
 #comparison-lightbox {
   display: none;
   position: fixed;
@@ -1329,9 +1210,7 @@ body {
   z-index: 10001;
 }
 
-#comparison-lightbox.active {
-  display: flex;
-}
+#comparison-lightbox.active { display: flex; }
 
 .comparison-container {
   width: 100%;
@@ -1372,162 +1251,7 @@ body {
   border: 1px solid var(--glass-border-subtle);
 }
 
-/* Comparison lightbox toolbar (toggle + download) */
-.comp-toolbar {
-  position: fixed;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10002;
-  display: flex;
-  gap: 10px;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-  border-radius: 50px;
-  padding: 8px 12px;
-}
-
-.comp-toolbar-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  border-radius: 50px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  cursor: pointer;
-  border: 1px solid var(--glass-border-subtle);
-  background: var(--glass-bg-light);
-  color: var(--text-secondary);
-  transition: all 0.3s var(--ease);
-}
-
-.comp-toolbar-btn:hover {
-  background: var(--glass-bg);
-  color: var(--text-primary);
-  border-color: var(--glass-border);
-}
-
-.comp-toolbar-btn.active {
-  background: var(--glass-bg-strong);
-  border-color: var(--terra);
-  color: var(--terra-light);
-  box-shadow: 0 0 12px var(--terra-glow);
-}
-
-.comp-toolbar-btn.download {
-  border-color: var(--sage);
-  color: var(--sage-light);
-}
-
-.comp-toolbar-btn.download:hover {
-  background: rgba(127, 168, 138, 0.15);
-  box-shadow: 0 4px 16px var(--sage-glow);
-}
-
-/* ==============================================
-   COMPARISON SLIDER MODE
-   ============================================== */
-.comp-slider-wrap {
-  display: none;
-  width: 100%;
-  height: 100%;
-  padding: 70px 32px;
-  justify-content: center;
-  align-items: center;
-}
-
-.comp-slider-wrap.active {
-  display: flex;
-}
-
-.comp-slider-container {
-  position: relative;
-  max-width: 900px;
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  overflow: hidden;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--glass-border-subtle);
-  box-shadow: var(--shadow-glass-lg);
-  background: #000;
-  cursor: ew-resize;
-}
-
-.comp-slider-container img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none;
-  user-select: none;
-}
-
-.comp-slider-container .slider-historical {
-  z-index: 1;
-}
-
-.comp-slider-container .slider-modern {
-  z-index: 2;
-  clip-path: inset(0 0 0 50%);
-}
-
-.comp-slider-handle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 4px;
-  background: var(--text-primary);
-  z-index: 3;
-  transform: translateX(-50%);
-  pointer-events: none;
-  box-shadow: 0 0 12px rgba(0,0,0,0.5);
-}
-
-.comp-slider-handle::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 2px solid var(--text-primary);
-  box-shadow: var(--shadow-glass);
-}
-
-.comp-slider-label {
-  position: absolute;
-  top: 16px;
-  z-index: 4;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding: 8px 18px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--amber);
-  border: 1px solid var(--glass-border-subtle);
-}
-
-.comp-slider-label.left { left: 16px; }
-.comp-slider-label.right { right: 16px; }
-
-/* ==============================================
-   CONTRIBUTE LANDING CARDS
-   ============================================== */
+/* --- Contribute Landing Cards ---------------------------- */
 .contribute-landing {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1588,11 +1312,8 @@ body {
   transition: gap 0.3s;
 }
 
-.contribute-type-card:hover .contribute-type-cta {
-  gap: 10px;
-}
+.contribute-type-card:hover .contribute-type-cta { gap: 10px; }
 
-/* Back button on form */
 .contribute-back-btn {
   display: inline-flex;
   align-items: center;
@@ -1615,14 +1336,7 @@ body {
   color: var(--text-primary);
 }
 
-@media (max-width: 768px) {
-  .contribute-landing { grid-template-columns: 1fr; }
-}
-
-/* ==============================================
-   ADMIN
-   Glass login card and admin controls
-   ============================================== */
+/* --- Admin ----------------------------------------------- */
 .admin-wrap {
   max-width: 1200px;
   margin: 0 auto;
@@ -1670,7 +1384,6 @@ body {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Admin Toolbar */
 .admin-toolbar {
   display: flex;
   gap: 12px;
@@ -1695,32 +1408,22 @@ body {
   border-color: var(--sage);
   color: var(--sage-light);
 }
-
-.admin-toolbar .btn-approve:hover {
-  background: rgba(127, 168, 138, 0.35);
-}
+.admin-toolbar .btn-approve:hover { background: rgba(127, 168, 138, 0.35); }
 
 .admin-toolbar .btn-reject {
   background: rgba(232, 151, 107, 0.1);
   border-color: var(--terra);
   color: var(--terra-light);
 }
-
-.admin-toolbar .btn-reject:hover {
-  background: rgba(232, 151, 107, 0.2);
-}
+.admin-toolbar .btn-reject:hover { background: rgba(232, 151, 107, 0.2); }
 
 .admin-toolbar .btn-refresh {
   background: var(--glass-bg-light);
   border-color: var(--glass-border);
   color: var(--text-secondary);
 }
+.admin-toolbar .btn-refresh:hover { background: var(--glass-bg); }
 
-.admin-toolbar .btn-refresh:hover {
-  background: var(--glass-bg);
-}
-
-/* DataTable Overrides - glass-styled table */
 .dataTables_wrapper {
   background: var(--glass-bg-strong);
   backdrop-filter: blur(var(--glass-blur));
@@ -1745,13 +1448,8 @@ table.dataTable tbody td {
   border-bottom: 1px solid var(--glass-border-subtle) !important;
 }
 
-table.dataTable tbody tr:hover {
-  background: var(--glass-bg-light) !important;
-}
-
-table.dataTable tbody tr.selected {
-  background: rgba(232, 151, 107, 0.15) !important;
-}
+table.dataTable tbody tr:hover { background: var(--glass-bg-light) !important; }
+table.dataTable tbody tr.selected { background: rgba(232, 151, 107, 0.15) !important; }
 
 .dataTables_wrapper .dataTables_length,
 .dataTables_wrapper .dataTables_filter,
@@ -1781,10 +1479,7 @@ table.dataTable tbody tr.selected {
   color: var(--terra-light) !important;
 }
 
-/* ==============================================
-   ALERTS
-   Glass-styled success and error alerts
-   ============================================== */
+/* --- Alerts ---------------------------------------------- */
 .alert-success-custom {
   background: rgba(127, 168, 138, 0.15);
   border: 1px solid var(--sage);
@@ -1809,22 +1504,132 @@ table.dataTable tbody tr.selected {
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* ==============================================
-   RESPONSIVE
-   ============================================== */
-@media (max-width: 768px) {
-  .paintings-grid { grid-template-columns: 1fr; }
-  .comparison-grid { grid-template-columns: 1fr; }
-  .stats-strip { gap: 8px; }
-  .comparison-container { grid-template-columns: 1fr; }
-  .form-card { padding: 32px 24px; }
-  .hero-inner { padding: 40px 24px; margin: 0 16px; }
-  .section-header { padding: 40px 20px 30px; }
+/* --- Responsive ------------------------------------------ */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
-/* ==============================================
-   SPLASH SCREEN OVERLAY
-   ============================================== */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .navbar { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+}
+
+.map-info-panel,
+.admin-wrap,
+.gallery-wrap,
+.comparison-wrap,
+.form-wrap {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Tablet (≤ 1024px) */
+@media (max-width: 1024px) {
+  .paintings-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+}
+
+/* Phone (≤ 768px) */
+@media (max-width: 768px) {
+  .navbar { min-height: 56px; }
+  .navbar-nav .nav-link { padding: 14px 18px !important; font-size: 12px !important; }
+  .navbar-collapse { background: var(--surface-dark-mid); border-top: 1px solid var(--glass-border-subtle); padding: 8px 0; }
+  .theme-toggle { margin: 8px 12px; }
+
+  .section-header { padding: 32px 16px 24px; }
+  .section-header h2 { font-size: 28px; }
+  .section-header p { font-size: 14px; }
+
+  .hero-banner { min-height: 100vh; min-height: 100svh; }
+  .hero-inner { padding: 32px 20px; margin: 0 12px; border-radius: var(--radius-lg); }
+  .hero-title { font-size: 36px; }
+  .hero-subtitle { font-size: 14px; margin-bottom: 24px; }
+  .hero-actions { flex-direction: column; align-items: center; }
+  .hero-actions .btn-terra,
+  .hero-actions .btn-sage { width: 100%; max-width: 280px; justify-content: center; }
+  .stats-strip { gap: 8px; margin-top: 32px; }
+  .stat-item { padding: 16px 10px; }
+  .stat-value { font-size: 28px; }
+  .stat-label { font-size: 9px; letter-spacing: 1.5px; }
+
+  .gallery-wrap { padding: 0 12px 48px; }
+  .paintings-grid { grid-template-columns: 1fr; gap: 20px; }
+  .painting-card { border-radius: var(--radius-md); }
+  .painting-info { padding: 16px; }
+  .painting-title { font-size: 18px; }
+  .painting-card-footer { flex-direction: column; align-items: flex-start; gap: 8px; }
+
+  .map-filter-bar { flex-wrap: wrap; padding: 0 12px; gap: 6px; justify-content: center; }
+  .map-filter-btn { font-size: 11px; padding: 6px 12px; gap: 5px; min-height: 36px; }
+  .artist-filter-wrap .shiny-input-container { width: 140px !important; }
+  .artist-filter-wrap .selectize-input { font-size: 11px !important; padding: 6px 10px !important; }
+
+  .map-split-layout { grid-template-columns: 1fr; padding: 0 12px 40px; gap: 16px; }
+  .map-container { height: 55vh; height: 55svh; min-height: 300px; max-height: 450px; border-radius: var(--radius-md); }
+  .map-info-panel { height: auto; max-height: 400px; padding: 20px; border-radius: var(--radius-md); }
+  .map-info-title { font-size: 20px; }
+  .map-info-image { max-height: 180px; }
+  .map-info-coords { gap: 8px; }
+  .coord-value { font-size: 15px; }
+  .map-info-cta { font-size: 11px; padding: 8px 14px; }
+
+  .form-wrap { padding: 0 12px 40px; max-width: 100%; }
+  .form-card { padding: 24px 16px; border-radius: var(--radius-md); }
+
+  .contribute-landing { grid-template-columns: 1fr; padding: 0 12px 40px; gap: 16px; }
+  .contribute-type-card { padding: 28px 20px; }
+  .contribute-type-icon { font-size: 36px; margin-bottom: 14px; }
+  .contribute-type-title { font-size: 18px; }
+
+  .comparison-wrap { padding: 0 12px 48px; }
+  .comparison-grid { grid-template-columns: 1fr; gap: 16px; }
+  .compare-filter-banner { flex-direction: column; align-items: flex-start; padding: 12px 16px; gap: 8px; }
+
+  .comparison-container { grid-template-columns: 1fr; padding: 60px 12px 100px; gap: 8px; }
+  .comparison-side { border-radius: 8px; }
+  .comparison-label { font-size: 11px; padding: 5px 12px; top: 8px; left: 8px; }
+  .lightbox-close { top: 12px; right: 12px; width: 40px; height: 40px; font-size: 22px; }
+
+  #museum-photo-lightbox { padding: 56px 12px 24px !important; }
+  #museum-lb-prev, #museum-lb-next { width: 36px !important; height: 36px !important; font-size: 24px !important; }
+  #museum-lb-prev { left: 8px !important; }
+  #museum-lb-next { right: 8px !important; }
+  #museum-lb-img { max-height: 55vh !important; }
+
+  .admin-wrap { padding: 0 12px 40px; max-width: 100vw; overflow-x: hidden; }
+  .admin-login-card { padding: 32px 20px; margin: 0; }
+  .admin-toolbar { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; width: 100% !important; }
+  .admin-toolbar > * { min-width: 0 !important; width: 100% !important; box-sizing: border-box !important; }
+  .admin-toolbar .btn { font-size: 11px !important; padding: 10px 6px !important; width: 100% !important; text-align: center !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+  .admin-toolbar .artist-filter-wrap { grid-column: 1 / -1; }
+  .admin-toolbar .artist-filter-wrap .shiny-input-container { width: 100% !important; }
+  .dataTables_wrapper { padding: 10px; border-radius: var(--radius-sm); max-width: 100%; overflow: hidden; }
+  .dataTables_wrapper table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; }
+  .dataTables_wrapper .dataTables_filter,
+  .dataTables_wrapper .dataTables_length { width: 100%; text-align: left !important; margin-bottom: 8px; }
+  .dataTables_wrapper .dataTables_filter input { width: 100% !important; max-width: 100% !important; }
+
+  .alert-success-custom,
+  .alert-error-custom { font-size: 13px; padding: 12px 14px; }
+}
+
+/* Small phone (≤ 390px) */
+@media (max-width: 390px) {
+  .hero-title { font-size: 30px; }
+  .hero-subtitle { font-size: 13px; }
+  .hero-inner { padding: 24px 14px; margin: 0 8px; }
+  .section-header h2 { font-size: 24px; }
+  .map-filter-bar { gap: 4px; }
+  .map-filter-btn { font-size: 10px; padding: 5px 8px; }
+  .artist-filter-wrap .shiny-input-container { width: 120px !important; }
+  .map-container { height: 50vh; height: 50svh; min-height: 260px; max-height: 380px; }
+  .painting-title { font-size: 16px; }
+  .painting-info { padding: 14px; }
+  .contribute-type-card { padding: 24px 16px; }
+  .contribute-type-title { font-size: 16px; }
+  .splash-title { font-size: 32px; }
+  .splash-tagline { font-size: 13px; }
+}
+
+/* --- Splash Screen Overlay ------------------------------- */
 .splash-overlay {
   position: fixed;
   inset: 0;
@@ -1848,7 +1653,6 @@ table.dataTable tbody tr.selected {
   pointer-events: none;
 }
 
-/* Floating ambient glow orbs */
 .splash-orb {
   position: absolute;
   border-radius: 50%;
@@ -1858,37 +1662,10 @@ table.dataTable tbody tr.selected {
   animation: orbFloat 12s ease-in-out infinite;
 }
 
-.splash-orb-1 {
-  width: 400px; height: 400px;
-  background: rgba(194, 113, 79, 0.1);
-  top: -5%; right: -5%;
-  animation-delay: 0s;
-  animation-duration: 14s;
-}
-
-.splash-orb-2 {
-  width: 350px; height: 350px;
-  background: rgba(95, 136, 104, 0.08);
-  bottom: -8%; left: -5%;
-  animation-delay: 3s;
-  animation-duration: 16s;
-}
-
-.splash-orb-3 {
-  width: 250px; height: 250px;
-  background: rgba(184, 148, 42, 0.07);
-  top: 40%; left: 30%;
-  animation-delay: 6s;
-  animation-duration: 18s;
-}
-
-.splash-orb-4 {
-  width: 300px; height: 300px;
-  background: rgba(194, 113, 79, 0.05);
-  bottom: 20%; right: 15%;
-  animation-delay: 9s;
-  animation-duration: 20s;
-}
+.splash-orb-1 { width: 400px; height: 400px; background: rgba(194, 113, 79, 0.1); top: -5%; right: -5%; animation-delay: 0s; animation-duration: 14s; }
+.splash-orb-2 { width: 350px; height: 350px; background: rgba(95, 136, 104, 0.08); bottom: -8%; left: -5%; animation-delay: 3s; animation-duration: 16s; }
+.splash-orb-3 { width: 250px; height: 250px; background: rgba(184, 148, 42, 0.07); top: 40%; left: 30%; animation-delay: 6s; animation-duration: 18s; }
+.splash-orb-4 { width: 300px; height: 300px; background: rgba(194, 113, 79, 0.05); bottom: 20%; right: 15%; animation-delay: 9s; animation-duration: 20s; }
 
 @keyframes orbFloat {
   0%   { opacity: 0; transform: translate(0, 0) scale(0.8); }
@@ -2007,16 +1784,77 @@ table.dataTable tbody tr.selected {
 }
 
 @media (max-width: 768px) {
-  .splash-inner { padding: 32px 20px; }
-  .splash-nav { flex-direction: column; align-items: center; }
+  .splash-inner { padding: 32px 16px; }
+  .splash-nav { flex-direction: column; align-items: center; gap: 10px; }
+  .splash-nav-btn { width: 100%; max-width: 260px; justify-content: center; }
+  .splash-title { font-size: 40px; }
+  .splash-tagline { font-size: 14px; margin-bottom: 28px; }
+  .splash-orb { display: none; }
+  .splash-badge { font-size: 10px; padding: 6px 18px; }
 }
 
-/* ==============================================
-   SHINY SPECIFIC OVERRIDES
-   ============================================== */
-.shiny-input-container {
-  width: 100% !important;
+/* --- Search Bar ------------------------------------------ */
+.tab-search-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 0 auto 32px;
+  padding: 0 24px;
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
 }
+
+.tab-search-input {
+  width: auto;
+  min-width: 20ch;
+  padding: 12px 18px 12px 44px;
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: 50px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.3s var(--ease);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.tab-search-input::placeholder { color: var(--text-muted); }
+
+.tab-search-input:focus {
+  border-color: var(--terra);
+  box-shadow: 0 0 0 4px var(--terra-glow);
+  background: var(--glass-bg-strong);
+}
+
+.tab-search-icon {
+  position: absolute;
+  left: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color 0.3s;
+}
+
+.tab-search-input:focus + .tab-search-icon,
+.tab-search-input:not(:placeholder-shown) + .tab-search-icon {
+  color: var(--terra);
+}
+
+@media (max-width: 768px) {
+  .tab-search-wrap { padding: 0 12px; margin-bottom: 20px; }
+  .tab-search-input { font-size: 13px; padding: 10px 14px 10px 38px; }
+  .tab-search-icon { left: 26px; font-size: 14px; }
+}
+
+/* --- Shiny Specific Overrides ---------------------------- */
+.shiny-input-container { width: 100% !important; }
 
 .selectize-input {
   border: 1px solid var(--glass-border-subtle) !important;
@@ -2038,47 +1876,19 @@ table.dataTable tbody tr.selected {
   border-radius: var(--radius-sm) !important;
 }
 
-.selectize-dropdown .option {
-  color: var(--text-secondary) !important;
-}
+.selectize-dropdown .option { color: var(--text-secondary) !important; }
+.selectize-dropdown .option.active { background: var(--glass-bg) !important; color: var(--text-primary) !important; }
+.selectize-input .item { color: var(--text-primary) !important; }
 
-.selectize-dropdown .option.active {
-  background: var(--glass-bg) !important;
-  color: var(--text-primary) !important;
-}
+.nav-pills .nav-link { color: var(--text-secondary) !important; }
+.nav-pills .nav-link.active { background: var(--glass-bg) !important; color: var(--text-primary) !important; }
 
-.selectize-input .item {
-  color: var(--text-primary) !important;
-}
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--surface-dark); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
 
-/* Override Bootstrap nav-pills for dark theme */
-.nav-pills .nav-link {
-  color: var(--text-secondary) !important;
-}
-
-.nav-pills .nav-link.active {
-  background: var(--glass-bg) !important;
-  color: var(--text-primary) !important;
-}
-
-/* Scrollbar styling for dark theme */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: var(--surface-dark);
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.15);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.25);
-}
-
-/* ==============================================
-   LIGHT/DARK MODE TOGGLE BUTTON
-   ============================================== */
+/* --- Light/Dark Mode Toggle ------------------------------ */
 .theme-toggle {
   background: var(--glass-bg);
   backdrop-filter: blur(12px);
@@ -2105,9 +1915,7 @@ table.dataTable tbody tr.selected {
   transform: scale(1.1);
 }
 
-/* ==============================================
-   LIGHT MODE OVERRIDES
-   ============================================== */
+/* --- Light Mode Overrides -------------------------------- */
 body.light-mode {
   --glass-bg: rgba(0, 0, 0, 0.04);
   --glass-bg-strong: rgba(0, 0, 0, 0.07);
@@ -2150,21 +1958,9 @@ body.light-mode .hero-banner {
   background-position: center;
 }
 
-body.light-mode .hero-inner {
-  background: rgba(255, 255, 255, 0.65);
-  border-color: rgba(0, 0, 0, 0.1);
-}
-
-body.light-mode .painting-card-badge {
-  background: rgba(255, 255, 255, 0.75);
-  border-color: rgba(0, 0, 0, 0.08);
-}
-
-body.light-mode .lightbox-close {
-  background: rgba(255, 255, 255, 0.7);
-  border-color: rgba(0, 0, 0, 0.1);
-  color: var(--text-primary);
-}
+body.light-mode .hero-inner { background: rgba(255, 255, 255, 0.65); border-color: rgba(0, 0, 0, 0.1); }
+body.light-mode .painting-card-badge { background: rgba(255, 255, 255, 0.75); border-color: rgba(0, 0, 0, 0.08); }
+body.light-mode .lightbox-close { background: rgba(255, 255, 255, 0.7); border-color: rgba(0, 0, 0, 0.1); color: var(--text-primary); }
 
 body.light-mode .dataTables_wrapper .dataTables_filter input {
   background: rgba(0, 0, 0, 0.03);
@@ -2172,64 +1968,160 @@ body.light-mode .dataTables_wrapper .dataTables_filter input {
   color: var(--text-primary);
 }
 
-body.light-mode .selectize-input {
-  background: rgba(0, 0, 0, 0.03) !important;
-  border-color: rgba(0, 0, 0, 0.1) !important;
-  color: var(--text-primary) !important;
-}
+body.light-mode .dataTables_wrapper { background: rgba(255, 255, 255, 0.75) !important; border-color: rgba(0, 0, 0, 0.1) !important; color: #2D2D2D !important; }
 
-body.light-mode .selectize-dropdown {
-  background: #F3EDE4 !important;
-  border-color: rgba(0, 0, 0, 0.1) !important;
-}
+body.light-mode table.dataTable thead th,
+body.light-mode .dataTables_wrapper table.dataTable thead th { color: rgba(45, 45, 45, 0.65) !important; border-bottom-color: rgba(0, 0, 0, 0.1) !important; background: transparent !important; background-color: transparent !important; }
+
+body.light-mode table.dataTable tbody td,
+body.light-mode .dataTables_wrapper table.dataTable tbody td { color: #2D2D2D !important; border-bottom-color: rgba(0, 0, 0, 0.06) !important; }
+
+body.light-mode table.dataTable tbody tr,
+body.light-mode .dataTables_wrapper table.dataTable tbody tr { background: transparent !important; background-color: transparent !important; }
+
+body.light-mode table.dataTable tbody tr:hover,
+body.light-mode .dataTables_wrapper table.dataTable tbody tr:hover { background: rgba(0, 0, 0, 0.04) !important; background-color: rgba(0, 0, 0, 0.04) !important; }
+
+body.light-mode table.dataTable tbody tr.selected,
+body.light-mode .dataTables_wrapper table.dataTable tbody tr.selected { background: rgba(194, 113, 79, 0.12) !important; background-color: rgba(194, 113, 79, 0.12) !important; }
+
+body.light-mode table.dataTable tbody tr.selected td { color: #2D2D2D !important; }
+
+body.light-mode .dataTables_wrapper .dataTables_length,
+body.light-mode .dataTables_wrapper .dataTables_filter,
+body.light-mode .dataTables_wrapper .dataTables_info,
+body.light-mode .dataTables_wrapper .dataTables_paginate { color: rgba(45, 45, 45, 0.55) !important; }
+
+body.light-mode .dataTables_wrapper .dataTables_paginate .paginate_button { color: rgba(45, 45, 45, 0.65) !important; border-color: rgba(0, 0, 0, 0.08) !important; background: rgba(0, 0, 0, 0.02) !important; background-color: rgba(0, 0, 0, 0.02) !important; }
+body.light-mode .dataTables_wrapper .dataTables_paginate .paginate_button:hover { color: #2D2D2D !important; background: rgba(0, 0, 0, 0.06) !important; background-color: rgba(0, 0, 0, 0.06) !important; border-color: rgba(0, 0, 0, 0.15) !important; }
+body.light-mode .dataTables_wrapper .dataTables_paginate .paginate_button.current { background: rgba(194, 113, 79, 0.12) !important; background-color: rgba(194, 113, 79, 0.12) !important; border-color: #C2714F !important; color: #C2714F !important; }
+
+body.light-mode .dataTables_wrapper .dataTables_length select { background: rgba(0, 0, 0, 0.03) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; color: #2D2D2D !important; border-radius: 6px; }
+
+body.light-mode .admin-toolbar .btn-approve { background: rgba(95, 136, 104, 0.12) !important; border-color: #5F8868 !important; color: #5F8868 !important; }
+body.light-mode .admin-toolbar .btn-reject { background: rgba(194, 113, 79, 0.08) !important; border-color: #C2714F !important; color: #C2714F !important; }
+body.light-mode .admin-toolbar .btn-refresh { background: rgba(0, 0, 0, 0.03) !important; border-color: rgba(0, 0, 0, 0.12) !important; color: rgba(45, 45, 45, 0.7) !important; }
+body.light-mode .admin-toolbar .btn[style*='DC3545'] { background: rgba(220, 53, 69, 0.1) !important; border-color: #DC3545 !important; color: #DC3545 !important; }
+
+body.light-mode .selectize-input { background: rgba(0, 0, 0, 0.03) !important; border-color: rgba(0, 0, 0, 0.1) !important; color: var(--text-primary) !important; }
+body.light-mode .selectize-dropdown { background: #F3EDE4 !important; border-color: rgba(0, 0, 0, 0.1) !important; }
 
 body.light-mode .form-card .form-control,
 body.light-mode .form-card input,
 body.light-mode .form-card select,
-body.light-mode .form-card textarea {
-  background: rgba(0, 0, 0, 0.03);
-  color: var(--text-primary);
-}
+body.light-mode .form-card textarea { background: rgba(0, 0, 0, 0.03); color: var(--text-primary); }
 
-body.light-mode .admin-login-card .form-control {
-  background: rgba(0, 0, 0, 0.03);
-  color: var(--text-primary);
-}
+body.light-mode .admin-login-card .form-control { background: rgba(0, 0, 0, 0.03); color: var(--text-primary); }
 
-body.light-mode ::-webkit-scrollbar-track {
-  background: #F3EDE4;
-}
-body.light-mode ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-}
+body.light-mode ::-webkit-scrollbar-track { background: #F3EDE4; }
+body.light-mode ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); }
 
-/* Light mode: comparison submitter badge uses amber like the year badge */
-body.light-mode .comparison-thumb-submitter {
-  background: rgba(255, 255, 255, 0.75);
-  border-color: rgba(0, 0, 0, 0.08);
-  color: var(--amber);
-}
+body.light-mode .comparison-thumb-submitter { background: rgba(255, 255, 255, 0.75); border-color: rgba(0, 0, 0, 0.08); color: var(--amber); }
 
-/* Light mode: form placeholder text darker for readability */
+body.light-mode .mobile-tab-bar { background: rgba(243, 237, 228, 0.94); border-bottom-color: rgba(0, 0, 0, 0.08); }
+body.light-mode .mobile-tab-bar .mob-tab { color: rgba(45, 45, 45, 0.4); }
+body.light-mode .mobile-tab-bar .mob-tab.active { color: var(--terra); border-bottom-color: var(--terra); }
+
 body.light-mode .form-card .form-control::placeholder,
 body.light-mode .form-card input::placeholder,
-body.light-mode .form-card textarea::placeholder {
-  color: rgba(45, 45, 45, 0.4) !important;
-  opacity: 1;
+body.light-mode .form-card textarea::placeholder { color: rgba(45, 45, 45, 0.4) !important; opacity: 1; }
+
+body.light-mode .form-card .selectize-input .item { color: var(--text-primary) !important; }
+body.light-mode .form-card .selectize-input input::placeholder { color: rgba(45, 45, 45, 0.4) !important; opacity: 1; }
+
+/* --- Mobile Top Tab Bar ---------------------------------- */
+.mobile-tab-bar { display: none; }
+
+@media (max-width: 768px) {
+  .navbar-toggler { display: none !important; }
+  .navbar-collapse { display: none !important; }
+  .theme-toggle { display: none !important; }
+  .navbar { display: none !important; }
+
+  .mobile-tab-bar {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 998;
+    background: rgba(15, 26, 20, 0.94);
+    backdrop-filter: blur(var(--glass-blur-heavy));
+    -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
+    border-bottom: 1px solid var(--glass-border-subtle);
+    padding: 0;
+    justify-content: stretch;
+    align-items: stretch;
+  }
+
+  .mob-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    text-decoration: none;
+    border: none;
+    background: none;
+    outline: none;
+    padding: 12px 4px;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+
+  .mob-tab.active {
+    color: var(--terra);
+    border-bottom-color: var(--terra);
+  }
+
+  .tab-content {
+    padding-bottom: 0 !important;
+    padding-top: 46px !important;
+  }
+
+  .navbar {
+    min-height: 44px !important;
+    justify-content: center !important;
+  }
 }
 
-body.light-mode .form-card .selectize-input .item {
-  color: var(--text-primary) !important;
+/* --- Map Info Panel Scroll Hint -------------------------- */
+.map-scroll-hint { display: none; }
+
+@media (max-width: 768px) {
+  .map-scroll-hint {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 0;
+    animation: hintBounce 1.5s ease-in-out 3;
+  }
+
+  .map-scroll-hint .hint-arrow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--terra);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
+
+  @keyframes hintBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(6px); }
+  }
 }
 
-body.light-mode .form-card .selectize-input input::placeholder {
-  color: rgba(45, 45, 45, 0.4) !important;
-  opacity: 1;
-}
-
-/* ==============================================
-   SUBMISSION COUNT BADGE ON GALLERY CARDS
-   ============================================== */
+/* --- Gallery Badges -------------------------------------- */
 .submission-count-badge {
   display: inline-flex;
   align-items: center;
@@ -2245,9 +2137,6 @@ body.light-mode .form-card .selectize-input input::placeholder {
   color: var(--sage-light);
 }
 
-/* ==============================================
-   MUSEUM PHOTO BADGE ON GALLERY CARDS
-   ============================================== */
 .museum-photo-badge {
   position: absolute;
   bottom: 14px;
@@ -2276,81 +2165,91 @@ body.light-mode .form-card .selectize-input input::placeholder {
   transform: translateY(-2px);
   box-shadow: 0 4px 16px var(--amber-glow);
 }
+
+.private-collection-badge {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(15, 26, 20, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border-subtle);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+  pointer-events: none;
+}
+
+body.light-mode .private-collection-badge {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: rgba(45, 45, 45, 0.5);
+}
+
+.map-info-private-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+}
 "
 
-################################################################################
+
+# ===========================================================================
 # UI SECTION
-################################################################################
+# ===========================================================================
 
 ui <- page_navbar(
   
   useShinyjs(),
-  # useShinyjs() activates the shinyjs package, which lets the server send
-  # JavaScript commands to the browser.
-  
   title = NULL,
-  # Setting title to NULL hides the default app title in the navbar.
-  
   id = "main_tabs",
-  # Gives the navbar an ID so the server can detect which tab is currently active.
-  # In the server you'll see: input$main_tabs
   
   theme = bs_theme(
-    # bs_theme() customizes the visual appearance using Bootstrap 5.
-    # GLASSMORPHISM THEME: Dark background with luminous accents.
-    
     version = 5,
-    # Use Bootstrap version 5.
-    
-    bg = "#0f1a14",    # Dark forest background (was cream)
-    fg = "#FFFFFF",    # White foreground text (was charcoal)
-    primary = "#E8976B",   # Luminous terra accent (was #C2714F)
-    secondary = "#7FA88A", # Luminous sage accent (was #6B8F71)
-    success = "#7FA88A",   # Sage green for success alerts
-    info = "#E2B94C",      # Bright amber for info alerts
-    
+    bg = "#0f1a14",
+    fg = "#FFFFFF",
+    primary = "#E8976B",
+    secondary = "#7FA88A",
+    success = "#7FA88A",
+    info = "#E2B94C",
     base_font = font_google("DM Sans"),
-    # Loads the "DM Sans" font from Google Fonts for body text.
-    
     heading_font = font_google("DM Serif Display")
-    # Loads "DM Serif Display" from Google Fonts for headings/titles.
   ),
   
   header = tags$head(
-    # tags$head() injects content into the HTML <head> tag.
-    # This is where you load external resources and styles.
-    
     tags$link(href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap", rel = "stylesheet"),
-    # Loads the Google Fonts stylesheet so DM Sans and DM Serif Display
-    # are available in the browser.
-    
-    tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
-    # This meta tag makes the app responsive on mobile devices --
-    # it tells the browser to scale the page to the device width.
-    
+    tags$meta(name = "viewport", content = "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"),
     tags$style(HTML(app_css)),
-    # Start in light mode by default
     tags$script(HTML("document.addEventListener('DOMContentLoaded', function() { document.body.classList.add('light-mode'); });"))
-    # Injects the custom CSS string (defined earlier as app_css) into the page.
   ),
   
   
   # -- TAB 1: MAP ----------------------------------------------------------
-  # Split layout with map on the left and an info panel on the right.
-  # Red circle markers for Bierstadt paintings, blue circles for user submissions.
-  # Clicking any marker populates the info panel with details.
   nav_panel(
     title = "Map",
     icon = icon("map-location-dot"),
     
     tags$div(class = "section-header",
              tags$h2("Explore Locations"),
-             tags$p("See where artists set up their easel across America. Click a marker for details."),
+             tags$p("Click a marker for details."),
              tags$div(class = "accent-line")
     ),
     
-    # Map filter buttons — let users toggle which markers are visible.
-    # "All" shows both, "Paintings" shows only red, "Submissions" shows only blue.
     tags$div(class = "map-filter-bar",
              tags$div(class = "map-filter-btn active", id = "map_filter_all",
                       onclick = "Shiny.setInputValue('set_map_filter', 'all');",
@@ -2364,9 +2263,8 @@ ui <- page_navbar(
              tags$div(class = "map-filter-btn", id = "map_filter_submissions",
                       onclick = "Shiny.setInputValue('set_map_filter', 'submissions');",
                       tags$span(class = "legend-dot blue"),
-                      "Current Photos"
+                      "Submissions"
              ),
-             
              tags$div(class = "map-filter-btn", id = "map_filter_museums",
                       onclick = "Shiny.setInputValue('set_map_filter', 'museums');",
                       tags$span(class = "legend-dot", style = "background: #DC3545;"),
@@ -2376,7 +2274,6 @@ ui <- page_navbar(
                       onclick = "startGeolocation();",
                       HTML("&#9678; My Location")
              ),
-             # Artist filter dropdown — styled inline with the filter buttons
              tags$div(class = "artist-filter-wrap",
                       selectInput("map_artist_filter", NULL,
                                   choices = c("All Artists" = "", sort(unique(paintings_data$artist))),
@@ -2385,16 +2282,14 @@ ui <- page_navbar(
              )
     ),
     
-    # Two-column grid layout -- map on left, info panel on right.
     tags$div(class = "map-split-layout",
-             
-             # LEFT: Interactive Leaflet map
              tags$div(class = "map-container",
                       leafletOutput("main_map", height = "100%")
              ),
-             
-             # RIGHT: Info panel -- populated when a marker is clicked
-             tags$div(class = "map-info-panel",
+             tags$div(id = "map-scroll-hint", class = "map-scroll-hint", style = "display: none;",
+                      tags$span(class = "hint-arrow", HTML("&#9660; Tap to see details below"))
+             ),
+             tags$div(id = "map-info-panel-el", class = "map-info-panel",
                       uiOutput("map_info_content")
              )
     )
@@ -2402,7 +2297,6 @@ ui <- page_navbar(
   
   
   # -- TAB 2: GALLERY ------------------------------------------------------
-  # Displays all paintings as clickable cards with optional museum photo badges.
   nav_panel(
     title = "Gallery",
     icon = icon("images"),
@@ -2410,6 +2304,14 @@ ui <- page_navbar(
     tags$div(class = "section-header",
              tags$h2("The Collection"),
              tags$div(class = "accent-line")
+    ),
+    
+    tags$div(class = "tab-search-wrap",
+             tags$input(type = "text", id = "gallery_search", class = "tab-search-input",
+                        size = "36",
+                        placeholder = "Search by title or artist...",
+                        oninput = "filterGalleryCards(this.value)"),
+             tags$span(class = "tab-search-icon", HTML("&#128269;"))
     ),
     
     tags$div(class = "gallery-wrap",
@@ -2420,9 +2322,7 @@ ui <- page_navbar(
   ),
   
   
-  # -- TAB 4: SUBMIT ------------------------------------------------------
-  # A form where visitors upload a modern photo from a Bierstadt location.
-  # They can optionally add their name, email, GPS coordinates, and observations.
+  # -- TAB 3: CONTRIBUTE ----------------------------------------------------
   nav_panel(
     title = "Contribute",
     icon = icon("camera"),
@@ -2433,32 +2333,25 @@ ui <- page_navbar(
              tags$div(class = "accent-line")
     ),
     
-    # -- LANDING PAGE: Three cards to choose submission type --
     tags$div(id = "contribute-landing", class = "contribute-landing",
-             
              tags$div(class = "contribute-type-card",
                       onclick = "selectContributeType('landscape')",
-                      tags$span(class = "contribute-type-icon", HTML("&#127748;")),
                       tags$div(class = "contribute-type-title", "Landscape Photo"),
                       tags$div(class = "contribute-type-desc",
                                "Visit a painting's real-world location and photograph what it looks like today."
                       ),
                       tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
              ),
-             
              tags$div(class = "contribute-type-card",
                       onclick = "selectContributeType('museum_photo')",
-                      tags$span(class = "contribute-type-icon", HTML("&#127963;")),
                       tags$div(class = "contribute-type-title", "Museum Photo"),
                       tags$div(class = "contribute-type-desc",
                                "Photograph a painting hanging in a museum or gallery and share the experience."
                       ),
                       tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
              ),
-             
              tags$div(class = "contribute-type-card",
                       onclick = "selectContributeType('user_painting')",
-                      tags$span(class = "contribute-type-icon", HTML("&#128444;")),
                       tags$div(class = "contribute-type-title", "Upload a Painting"),
                       tags$div(class = "contribute-type-desc",
                                "Add a new historical landscape painting to grow the collection beyond Bierstadt."
@@ -2467,44 +2360,28 @@ ui <- page_navbar(
              )
     ),
     
-    # -- FORM (hidden until a card is clicked) --
     tags$div(id = "contribute-form-wrap", class = "form-wrap", style = "display: none;",
              tags$div(class = "form-card",
-                      
-                      # Back button to return to landing
                       tags$div(class = "contribute-back-btn",
                                onclick = "showContributeLanding()",
                                HTML("&larr; Back")
                       ),
-                      
-                      # Form type indicator
                       tags$div(id = "contribute-form-type-label",
                                style = "font-family: 'DM Serif Display', Georgia, serif; font-size: 22px; color: var(--text-primary); margin-bottom: 24px;"
                       ),
-                      
                       uiOutput("submit_message"),
-                      
-                      # Hidden radio buttons — set by JS when a card is clicked
                       tags$div(style = "display: none;",
                                radioButtons("submit_type", NULL,
-                                            choices = c(
-                                              "landscape" = "landscape",
-                                              "museum_photo" = "museum_photo",
-                                              "user_painting" = "user_painting"
-                                            ),
+                                            choices = c("landscape" = "landscape", "museum_photo" = "museum_photo", "user_painting" = "user_painting"),
                                             selected = "landscape"
                                )
                       ),
-                      
                       tags$div(class = "form-group",
                                textInput("submit_name", "Your Name (optional)", placeholder = "Jane Doe")
                       ),
-                      
                       tags$div(class = "form-group",
                                textInput("submit_email", "Email (optional)", placeholder = "jane@university.edu")
                       ),
-                      
-                      # Painting selector (landscape & museum_photo only)
                       conditionalPanel(
                         condition = "input.submit_type !== 'user_painting'",
                         tags$div(class = "form-group",
@@ -2512,8 +2389,6 @@ ui <- page_navbar(
                                              choices = c("Select a painting..." = "", setNames(paintings_data$id, paintings_data$title)))
                         )
                       ),
-                      
-                      # User painting fields (user_painting only)
                       conditionalPanel(
                         condition = "input.submit_type === 'user_painting'",
                         tags$div(class = "form-group",
@@ -2531,17 +2406,20 @@ ui <- page_navbar(
                                  )
                         )
                       ),
-                      
                       tags$div(class = "form-group",
                                tags$label("Upload Your Photo"),
                                tags$div(class = "upload-zone",
                                         tags$div(class = "upload-icon", HTML("&#128247;")),
-                                        tags$p(style = "color: var(--text-secondary); font-size: 14px;", "Drag & drop or click to browse"),
+                                        tags$p(style = "color: var(--text-secondary); font-size: 14px;", "Take a photo or choose from library"),
                                         fileInput("submit_photo", NULL, accept = c("image/png", "image/jpeg", "image/jpg"))
-                               )
+                               ),
+                               tags$script(HTML("
+                                 $(document).on('shiny:connected', function() {
+                                   var fi = document.querySelector('#submit_photo');
+                                   if (fi) { fi.setAttribute('capture', 'environment'); }
+                                 });
+                               "))
                       ),
-                      
-                      # GPS coordinates (hidden for museum_photo)
                       conditionalPanel(
                         condition = "input.submit_type !== 'museum_photo'",
                         tags$div(class = "form-group",
@@ -2566,21 +2444,17 @@ ui <- page_navbar(
                                  tags$div(id = "location_status", style = "font-size: 12px; color: var(--text-muted); margin-top: 6px;")
                         )
                       ),
-                      
                       tags$div(class = "form-group",
                                textAreaInput("submit_observations", "Observations (optional)", rows = 3,
                                              placeholder = "What did you notice about how the landscape has changed?")
                       ),
-                      
                       actionButton("submit_button", HTML("Submit &rarr;"), class = "btn-submit")
              )
     )
   ),
   
   
-  # -- TAB 5: COMPARE ----------------------------------------------------
-  # Shows a grid of approved submissions as thumbnails. Clicking one opens
-  # a side-by-side lightbox comparing the original painting with the modern photo.
+  # -- TAB 4: COMPARE ------------------------------------------------------
   nav_panel(
     title = "Compare",
     icon = icon("arrows-left-right"),
@@ -2591,36 +2465,24 @@ ui <- page_navbar(
              tags$div(class = "accent-line")
     ),
     
+    tags$div(class = "tab-search-wrap",
+             tags$input(type = "text", id = "compare_search", class = "tab-search-input",
+                        size = "36",
+                        placeholder = "Search by title or artist...",
+                        oninput = "filterCompareCards(this.value)"),
+             tags$span(class = "tab-search-icon", HTML("&#128269;"))
+    ),
+    
     tags$div(class = "comparison-wrap",
              uiOutput("comparison_gallery")
-             # Placeholder filled by the server. If no approved submissions exist,
-             # it shows a "be the first to contribute" message. Otherwise it
-             # generates a grid of clickable thumbnail cards.
     )
   ),
   
   
-  # -- SPACER --------------------------------------------------------------
   nav_spacer(),
-  # Pushes everything after it to the far right of the navbar.
   
   
-  # -- THEME TOGGLE --------------------------------------------------------
-  # A sun/moon button in the navbar that switches between dark and light mode.
-  nav_item(
-    tags$button(
-      id = "theme_toggle",
-      class = "theme-toggle",
-      title = "Toggle light/dark mode",
-      onclick = "toggleTheme()",
-      HTML("&#9789;")
-    )
-  ),
-  
-  
-  # -- TAB 6: LOGIN ------------------------------------------------------
-  # Admin-only tab. Shows a password form by default. On correct login,
-  # shows a data table of all submissions with approve/reject buttons.
+  # -- TAB 5: ADMIN LOGIN ---------------------------------------------------
   nav_panel(
     title = "Admin Login",
     icon = icon("right-to-bracket"),
@@ -2632,70 +2494,53 @@ ui <- page_navbar(
     ),
     
     tags$div(class = "admin-wrap",
-             
              conditionalPanel(
                condition = "output.admin_authenticated == false",
-               # conditionalPanel() shows/hides its contents based on a JavaScript condition.
-               # Here: show the login form only when the user is NOT authenticated.
-               # output.admin_authenticated is a reactive value set by the server.
-               
                tags$div(class = "admin-login-card",
                         tags$h3("Sign In"),
                         tags$p("Enter admin credentials to manage submissions."),
                         passwordInput("admin_password", NULL, placeholder = "Password"),
-                        # passwordInput() is like textInput but hides the characters as dots.
                         actionButton("admin_login", "Sign In", class = "btn-submit")
-                        # When clicked, the server checks if the password matches "admin123".
                )
              ),
-             
              conditionalPanel(
                condition = "output.admin_authenticated == true",
-               # Show the admin panel only when the user IS authenticated.
-               
                tags$div(class = "admin-toolbar",
                         actionButton("refresh_admin", "Refresh", class = "btn btn-refresh"),
                         actionButton("approve_submission", "Approve Selected", class = "btn btn-approve"),
                         actionButton("reject_submission", "Reject Selected", class = "btn btn-reject"),
                         actionButton("delete_submission", "Delete Selected", class = "btn btn-reject",
                                      style = "background: #DC3545; border-color: #DC3545; color: white;"),
-                        # Submission type filter dropdown
                         tags$div(class = "artist-filter-wrap",
                                  selectInput("admin_type_filter", NULL,
-                                             choices = c("All Types" = "",
-                                                         "Landscape Photos" = "landscape",
-                                                         "Museum Photos" = "museum_photo",
-                                                         "User Paintings" = "user_painting"),
-                                             selected = "",
-                                             width = "180px")
+                                             choices = c("All Types" = "", "Landscape Photos" = "landscape", "Museum Photos" = "museum_photo", "User Paintings" = "user_painting"),
+                                             selected = "", width = "180px")
                         ),
-                        # Approval status filter dropdown
                         tags$div(class = "artist-filter-wrap",
                                  selectInput("admin_status_filter", NULL,
-                                             choices = c("All Statuses" = "",
-                                                         "Pending" = "Pending",
-                                                         "Approved" = "Approved",
-                                                         "Rejected" = "Rejected"),
-                                             selected = "",
-                                             width = "160px")
+                                             choices = c("All Statuses" = "", "Pending" = "Pending", "Approved" = "Approved", "Rejected" = "Rejected"),
+                                             selected = "", width = "160px")
                         )
                ),
-               
                DTOutput("admin_table")
-               # DTOutput() is a placeholder for a DataTables interactive table.
-               # The server renders it with renderDT(), showing all submissions.
              )
     )
   ),
   
   
-  # -- LIGHTBOXES AND JAVASCRIPT ------------------------------------------
-  # These elements are always present in the HTML but hidden by default.
-  # The JavaScript functions below control when they appear.
+  # -- FOOTER: LIGHTBOXES AND JAVASCRIPT ------------------------------------
   footer = tagList(
     
-    # -- SPLASH SCREEN OVERLAY -------------------------------------------
-    # Full-screen immersive intro. Fades away on click or nav button press.
+    # Mobile top tab bar
+    tags$div(id = "mobile-tab-bar", class = "mobile-tab-bar",
+             tags$button(class = "mob-tab active", `data-tab` = "Map", onclick = "mobileTabSwitch('Map')", "Map"),
+             tags$button(class = "mob-tab", `data-tab` = "Gallery", onclick = "mobileTabSwitch('Gallery')", "Gallery"),
+             tags$button(class = "mob-tab", `data-tab` = "Contribute", onclick = "mobileTabSwitch('Contribute')", "Contribute"),
+             tags$button(class = "mob-tab", `data-tab` = "Compare", onclick = "mobileTabSwitch('Compare')", "Compare"),
+             tags$button(class = "mob-tab", `data-tab` = "Admin Login", onclick = "mobileTabSwitch('Admin Login')", "Admin")
+    ),
+    
+    # Splash screen overlay
     tags$div(id = "splash-overlay", class = "splash-overlay",
              onclick = "dismissSplash()",
              tags$div(class = "splash-orb splash-orb-1"),
@@ -2703,24 +2548,16 @@ ui <- page_navbar(
              tags$div(class = "splash-orb splash-orb-3"),
              tags$div(class = "splash-orb splash-orb-4"),
              tags$div(class = "splash-inner",
-                      tags$div(class = "splash-badge", "Art \u00b7 History \u00b7 Landscape"),
-                      tags$h1(class = "splash-title",
-                              HTML("Landscape<br>Through <span>Time</span>")
-                      ),
-                      tags$p(class = "splash-tagline",
-                             "Explore where painters set up their easels across America \u2014 and see how those landscapes look today."
-                      ),
+                      tags$h1(class = "splash-title", HTML("Landscape<br>Through <span>Time</span>")),
+                      tags$p(class = "splash-tagline", "Explore where painters set up their easels across America."),
                       tags$div(class = "splash-hint", "Click anywhere to enter")
              )
     ),
     
-    # -- COMPARISON LIGHTBOX --------------------------------------------
-    # A full-screen side-by-side view. Left = historical painting, Right = modern photo.
+    # Comparison lightbox
     tags$div(id = "comparison-lightbox",
              tags$div(class = "lightbox-close", onclick = "closeComparisonLightbox()",
                       style = "position: fixed; top: 24px; right: 24px; z-index: 10002;", HTML("&times;")),
-             
-             # Side-by-side view (default)
              tags$div(id = "comp-sidebyside", class = "comparison-container",
                       tags$div(class = "comparison-side",
                                tags$div(class = "comparison-label", "Historical"),
@@ -2730,49 +2567,17 @@ ui <- page_navbar(
                                tags$div(class = "comparison-label", "Present Day"),
                                tags$img(id = "comp-modern", src = "", draggable = "false")
                       )
-             ),
-             
-             # Slider overlay view (hidden by default)
-             tags$div(id = "comp-slider", class = "comp-slider-wrap",
-                      tags$div(class = "comp-slider-container",
-                               id = "comp-slider-container",
-                               tags$img(id = "slider-historical", class = "slider-historical", src = "", draggable = "false"),
-                               tags$img(id = "slider-modern", class = "slider-modern", src = "", draggable = "false"),
-                               tags$div(id = "comp-slider-handle", class = "comp-slider-handle"),
-                               tags$div(class = "comp-slider-label left", "Historical"),
-                               tags$div(class = "comp-slider-label right", "Present Day")
-                      )
-             ),
-             
-             # Toolbar: toggle buttons + download
-             tags$div(class = "comp-toolbar",
-                      tags$div(class = "comp-toolbar-btn active", id = "comp-mode-sidebyside",
-                               onclick = "setCompMode('sidebyside')",
-                               HTML("&#9638;&#9638; Side by Side")
-                      ),
-                      tags$div(class = "comp-toolbar-btn", id = "comp-mode-slider",
-                               onclick = "setCompMode('slider')",
-                               HTML("&#8660; Slider")
-                      ),
-                      tags$div(class = "comp-toolbar-btn download", id = "comp-download-btn",
-                               onclick = "downloadComparisonPhoto()",
-                               HTML("&#8615; Download Photo")
-                      )
              )
     ),
     
-    # -- MUSEUM PHOTO LIGHTBOX ------------------------------------------
-    # Full-screen overlay with left/right arrows to cycle through
-    # multiple museum photos for a painting.
+    # Museum photo lightbox
     tags$div(id = "museum-photo-lightbox",
              style = "display:none; position:fixed; inset:0; background:rgba(8,12,10,0.97); z-index:10001; align-items:center; justify-content:center; flex-direction:column; padding:60px 32px;",
              tags$div(class = "lightbox-close", onclick = "closeMuseumLightbox()",
                       style = "position:fixed; top:24px; right:24px; z-index:10002;", HTML("&times;")),
-             # Left arrow
              tags$div(id = "museum-lb-prev", onclick = "museumLightboxNav(-1)",
                       style = "position:fixed; left:24px; top:50%; transform:translateY(-50%); z-index:10002; cursor:pointer; font-size:36px; color:var(--text-secondary); background:var(--glass-bg); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--glass-border-subtle); width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all 0.3s;",
                       HTML("&#8249;")),
-             # Right arrow
              tags$div(id = "museum-lb-next", onclick = "museumLightboxNav(1)",
                       style = "position:fixed; right:80px; top:50%; transform:translateY(-50%); z-index:10002; cursor:pointer; font-size:36px; color:var(--text-secondary); background:var(--glass-bg); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--glass-border-subtle); width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all 0.3s;",
                       HTML("&#8250;")),
@@ -2787,9 +2592,7 @@ ui <- page_navbar(
              )
     ),
     
-    # -- JAVASCRIPT ----------------------------------------------------
-    # All the client-side interactivity: lightbox open/close, 3D card tilt,
-    # tab switching, and fixing the Leaflet map rendering bug in tabs.
+    # JavaScript
     tags$script(HTML(paste0("
 
       // -- SPLASH SCREEN ---------------------------------------------------
@@ -2802,46 +2605,30 @@ ui <- page_navbar(
 
       window.splashNavigate = function(tab) {
         dismissSplash();
-        // Small delay so the fade starts before tab switch
         setTimeout(function() {
           var tabLink = document.querySelector('a.nav-link[data-value=\"' + tab + '\"]');
           if (tabLink) tabLink.click();
         }, 200);
       };
 
-      // -- LIGHT/DARK MODE TOGGLE ----------------------------------------
-      window.toggleTheme = function() {
-        document.body.classList.toggle('light-mode');
-        var btn = document.getElementById('theme_toggle');
-        if (document.body.classList.contains('light-mode')) {
-          btn.innerHTML = '&#9789;';
+      // -- AUTO DARK MODE ON ADMIN TAB -----------------------------------
+      function applyAdminTheme(tabVal) {
+        if (tabVal === 'Admin Login') {
+          document.body.classList.remove('light-mode');
         } else {
-          btn.innerHTML = '&#9788;';
+          document.body.classList.add('light-mode');
         }
-      };
+      }
 
-      // paintingsData is the CSV data injected from R into JavaScript as JSON.
       var paintingsData = ", jsonlite::toJSON(paintings_data, auto_unbox = TRUE), ";
 
-      // Opens the comparison lightbox with two images side by side.
-      var compModernUrl = ''; // stored for download
+      // -- COMPARISON LIGHTBOX ---------------------------------------------
       window.openComparisonLightbox = function(historicalUrl, modernUrl) {
-        compModernUrl = modernUrl;
-        // Set images for side-by-side
         document.getElementById('comp-historical').src = historicalUrl;
         document.getElementById('comp-modern').src = modernUrl;
-        // Set images for slider
-        document.getElementById('slider-historical').src = historicalUrl;
-        document.getElementById('slider-modern').src = modernUrl;
-        // Reset to side-by-side mode
-        setCompMode('sidebyside');
-        // Reset slider position
-        resetSlider();
-        
         document.getElementById('comparison-lightbox').classList.add('active');
         document.body.style.overflow = 'hidden';
 
-        // Adds scroll-to-zoom behavior on both side-by-side images simultaneously.
         var sides = document.querySelectorAll('#comp-sidebyside .comparison-side img');
         sides.forEach(function(img) {
           img.addEventListener('wheel', function(e) {
@@ -2857,102 +2644,12 @@ ui <- page_navbar(
       window.closeComparisonLightbox = function() {
         document.getElementById('comparison-lightbox').classList.remove('active');
         document.body.style.overflow = '';
-        // Reset zoom on side-by-side images
         document.querySelectorAll('#comp-sidebyside .comparison-side img').forEach(function(img) {
           img.style.transform = '';
         });
       };
 
-      // -- COMPARISON MODE TOGGLE ------------------------------------------
-      window.setCompMode = function(mode) {
-        var sbs = document.getElementById('comp-sidebyside');
-        var slider = document.getElementById('comp-slider');
-        var btnSbs = document.getElementById('comp-mode-sidebyside');
-        var btnSlider = document.getElementById('comp-mode-slider');
-        
-        if (mode === 'slider') {
-          sbs.style.display = 'none';
-          slider.classList.add('active');
-          btnSbs.classList.remove('active');
-          btnSlider.classList.add('active');
-        } else {
-          sbs.style.display = '';
-          slider.classList.remove('active');
-          btnSbs.classList.add('active');
-          btnSlider.classList.remove('active');
-        }
-      };
-
-      // -- COMPARISON SLIDER -----------------------------------------------
-      function resetSlider() {
-        var handle = document.getElementById('comp-slider-handle');
-        var modern = document.getElementById('slider-modern');
-        if (handle) handle.style.left = '50%';
-        if (modern) modern.style.clipPath = 'inset(0 0 0 50%)';
-      }
-
-      (function() {
-        var dragging = false;
-        var container = null;
-
-        document.addEventListener('mousedown', function(e) {
-          container = document.getElementById('comp-slider-container');
-          if (!container || !container.contains(e.target)) return;
-          dragging = true;
-          updateSliderPosition(e, container);
-          e.preventDefault();
-        });
-
-        document.addEventListener('mousemove', function(e) {
-          if (!dragging || !container) return;
-          updateSliderPosition(e, container);
-        });
-
-        document.addEventListener('mouseup', function() {
-          dragging = false;
-          container = null;
-        });
-
-        // Touch support
-        document.addEventListener('touchstart', function(e) {
-          container = document.getElementById('comp-slider-container');
-          if (!container || !container.contains(e.target)) return;
-          dragging = true;
-          updateSliderPosition(e.touches[0], container);
-        }, { passive: true });
-
-        document.addEventListener('touchmove', function(e) {
-          if (!dragging || !container) return;
-          updateSliderPosition(e.touches[0], container);
-        }, { passive: true });
-
-        document.addEventListener('touchend', function() {
-          dragging = false;
-          container = null;
-        });
-
-        function updateSliderPosition(e, cont) {
-          var rect = cont.getBoundingClientRect();
-          var x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-          var pct = (x / rect.width) * 100;
-          document.getElementById('comp-slider-handle').style.left = pct + '%';
-          document.getElementById('slider-modern').style.clipPath = 'inset(0 0 0 ' + pct + '%)';
-        }
-      })();
-
-      // -- DOWNLOAD COMPARISON PHOTO ---------------------------------------
-      window.downloadComparisonPhoto = function() {
-        if (!compModernUrl) return;
-        var link = document.createElement('a');
-        link.href = compModernUrl;
-        link.download = 'comparison-photo.jpg';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      };
-
-      // -- MUSEUM PHOTO LIGHTBOX (cycling) --------------------------------
-      // Stores the current photo array and index for arrow navigation.
+      // -- MUSEUM PHOTO LIGHTBOX -------------------------------------------
       var museumPhotos = [];
       var museumPhotoIdx = 0;
       var museumTitle = '';
@@ -2963,7 +2660,6 @@ ui <- page_navbar(
         document.getElementById('museum-lb-img').src = photo.url;
         document.getElementById('museum-lb-info').innerHTML = '<strong>' + museumTitle + '</strong><br>Photographed by ' + photo.name;
         document.getElementById('museum-lb-counter').textContent = (museumPhotoIdx + 1) + ' / ' + museumPhotos.length;
-        // Show/hide arrows based on count
         document.getElementById('museum-lb-prev').style.display = museumPhotos.length > 1 ? 'flex' : 'none';
         document.getElementById('museum-lb-next').style.display = museumPhotos.length > 1 ? 'flex' : 'none';
         document.getElementById('museum-lb-counter').style.display = museumPhotos.length > 1 ? 'block' : 'none';
@@ -2992,7 +2688,6 @@ ui <- page_navbar(
         museumPhotoIdx = 0;
       };
 
-      // Pressing Escape closes any open lightbox. Arrow keys cycle museum photos.
       document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
           closeComparisonLightbox();
@@ -3004,58 +2699,83 @@ ui <- page_navbar(
         }
       });
 
-      // -- 3D CARD TILT EFFECT ------------------------------------------
-      // As the mouse moves over a painting card, it tilts in 3D toward the cursor.
+      // -- 3D CARD TILT EFFECT ---------------------------------------------
       function initTilt() {
         document.querySelectorAll('.painting-card').forEach(function(card) {
           card.addEventListener('mousemove', function(e) {
             var rect = card.getBoundingClientRect();
-            // getBoundingClientRect() returns the card's position and size on screen.
             var x = e.clientX - rect.left;
             var y = e.clientY - rect.top;
-            // x and y = mouse position relative to the top-left of the card.
             var rotX = (y - rect.height / 2) / 25;
             var rotY = (rect.width / 2 - x) / 25;
-            // Calculate rotation angles. Dividing by 25 keeps the tilt subtle.
             card.style.transform = 'perspective(800px) rotateX(' + rotX + 'deg) rotateY(' + rotY + 'deg) translateY(-6px)';
-            // Apply the 3D transform. perspective(800px) sets how dramatic the 3D effect looks.
           });
           card.addEventListener('mouseleave', function() {
             card.style.transform = '';
-            // Reset the card to its normal flat state when the mouse leaves.
           });
         });
       }
 
-      // Re-run initTilt() after Shiny re-renders the painting cards,
-      // because new DOM elements won't have the event listeners yet.
       $(document).on('shiny:value', function(e) {
         if (e.name === 'painting_cards') {
           setTimeout(initTilt, 100);
-          // 100ms delay gives the DOM time to finish rendering before we attach listeners.
         }
       });
       setTimeout(initTilt, 500);
-      // Also run once 500ms after page load for the initial render.
 
-      // -- TAB SWITCHING FROM R ----------------------------------------
-      // This handler listens for messages sent from the R server via
-      // session$sendCustomMessage('switchTab', 'Gallery').
-      // It then simulates a click on the matching navbar tab link.
+      // -- GALLERY SEARCH FILTER -------------------------------------------
+      window.filterGalleryCards = function(query) {
+        var q = (query || '').toLowerCase().trim();
+        var cards = document.querySelectorAll('.painting-card');
+        cards.forEach(function(card) {
+          var title = card.getAttribute('data-title') || '';
+          var artist = card.getAttribute('data-artist') || '';
+          if (!q || title.indexOf(q) !== -1 || artist.indexOf(q) !== -1) {
+            card.style.display = '';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      };
+
+      // -- COMPARE SEARCH FILTER -------------------------------------------
+      window.filterCompareCards = function(query) {
+        var q = (query || '').toLowerCase().trim();
+        var cards = document.querySelectorAll('.comparison-thumb');
+        cards.forEach(function(card) {
+          var painting = card.getAttribute('data-painting') || '';
+          var artist = card.getAttribute('data-artist') || '';
+          if (!q || painting.indexOf(q) !== -1 || artist.indexOf(q) !== -1) {
+            card.style.display = '';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      };
+
+      $(document).on('shiny:value', function(e) {
+        if (e.name === 'painting_cards') {
+          var gi = document.getElementById('gallery_search');
+          if (gi && gi.value) filterGalleryCards(gi.value);
+        }
+        if (e.name === 'comparison_gallery') {
+          var ci = document.getElementById('compare_search');
+          if (ci && ci.value) filterCompareCards(ci.value);
+        }
+      });
+
+      // -- TAB SWITCHING FROM R --------------------------------------------
       Shiny.addCustomMessageHandler('switchTab', function(tab) {
         var tabLink = document.querySelector('a.nav-link[data-value=\"' + tab + '\"]');
         if (tabLink) tabLink.click();
       });
 
       // -- LIVE GEOLOCATION ------------------------------------------------
-      // Uses the browser Geolocation API with watchPosition to continuously
-      // track the user and send lat/lng updates to Shiny.
       var geoWatchId = null;
 
       window.startGeolocation = function() {
         var btn = document.getElementById('locate_me_btn');
 
-        // If already tracking, stop
         if (geoWatchId !== null) {
           navigator.geolocation.clearWatch(geoWatchId);
           geoWatchId = null;
@@ -3094,8 +2814,7 @@ ui <- page_navbar(
         );
       };
 
-      // -- CONTRIBUTE LANDING PAGE ------------------------------------------
-      // Shows the form and sets the submission type when a card is clicked.
+      // -- CONTRIBUTE LANDING PAGE -----------------------------------------
       var typeLabels = {
         'landscape': 'Submit a Landscape Photo',
         'museum_photo': 'Submit a Museum Photo',
@@ -3103,14 +2822,10 @@ ui <- page_navbar(
       };
 
       window.selectContributeType = function(type) {
-        // Set the hidden radio button
         $('input[name=\"submit_type\"][value=\"' + type + '\"]').prop('checked', true).trigger('change');
-        // Update the form title
         document.getElementById('contribute-form-type-label').textContent = typeLabels[type] || 'Submit';
-        // Show form, hide landing
         document.getElementById('contribute-landing').style.display = 'none';
         document.getElementById('contribute-form-wrap').style.display = '';
-        // Scroll to top of form
         window.scrollTo({ top: 0, behavior: 'smooth' });
       };
 
@@ -3119,9 +2834,7 @@ ui <- page_navbar(
         document.getElementById('contribute-form-wrap').style.display = 'none';
       };
 
-      // -- FORM GEOLOCATION (one-shot) ------------------------------------
-      // Uses getCurrentPosition to fill in the lat/lng fields on the
-      // Contribute form. Unlike the map's watchPosition, this fires once.
+      // -- FORM GEOLOCATION (one-shot) -------------------------------------
       window.getFormLocation = function() {
         var statusEl = document.getElementById('location_status');
         var btn = document.getElementById('use_my_location_btn');
@@ -3139,7 +2852,6 @@ ui <- page_navbar(
           function(pos) {
             Shiny.setInputValue('submit_latitude', pos.coords.latitude);
             Shiny.setInputValue('submit_longitude', pos.coords.longitude);
-            // Also update the visible numeric input fields
             $('#submit_latitude').val(pos.coords.latitude.toFixed(4));
             $('#submit_longitude').val(pos.coords.longitude.toFixed(4));
             if (statusEl) statusEl.textContent = 'Location set (' + pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4) + ')';
@@ -3155,11 +2867,48 @@ ui <- page_navbar(
         );
       };
 
-      // -- LEAFLET MAP FIX ----------------------------------------------
-      // Leaflet maps don't render correctly when inside a hidden tab because
-      // they calculate their size when the tab isn't visible yet (size = 0).
-      // This fix fires a window resize event after the Map tab becomes visible,
-      // which tells Leaflet to recalculate and correctly fill the container.
+      // -- MOBILE TAB BAR --------------------------------------------------
+      window.mobileTabSwitch = function(tab) {
+        var tabLink = document.querySelector('a.nav-link[data-value=\"' + tab + '\"]');
+        if (tabLink) tabLink.click();
+        document.querySelectorAll('.mob-tab').forEach(function(btn) {
+          btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+        });
+      };
+
+      $(document).on('shown.bs.tab', function(e) {
+        if (!e.target) return;
+        var tabVal = e.target.getAttribute('data-value');
+        document.querySelectorAll('.mob-tab').forEach(function(btn) {
+          btn.classList.toggle('active', btn.getAttribute('data-tab') === tabVal);
+        });
+        applyAdminTheme(tabVal);
+      });
+
+      // -- MAP INFO SCROLL HINT + AUTO-SCROLL ------------------------------
+      Shiny.addCustomMessageHandler('scrollToInfoPanel', function(msg) {
+        var isMobile = window.innerWidth <= 768;
+        if (!isMobile) return;
+
+        var hint = document.getElementById('map-scroll-hint');
+        var panel = document.getElementById('map-info-panel-el');
+        if (!panel) return;
+
+        if (hint) {
+          hint.style.display = '';
+          hint.onclick = function() {
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            hint.style.display = 'none';
+          };
+          setTimeout(function() { hint.style.display = 'none'; }, 4000);
+        }
+
+        setTimeout(function() {
+          panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 400);
+      });
+
+      // -- LEAFLET MAP FIX -------------------------------------------------
       $(document).on('shown.bs.tab', function(e) {
         if (e.target && e.target.getAttribute('data-value') === 'Map') {
           setTimeout(function() {
@@ -3172,49 +2921,45 @@ ui <- page_navbar(
 )
 
 
-################################################################################
+# ===========================================================================
 # SERVER SECTION
-# The server is the "back end" -- it contains all the logic that responds to
-# user actions, reads/writes data, and generates dynamic content.
-# It receives three arguments automatically from Shiny:
-#   input  -- all current values from UI widgets (buttons, text fields, etc.)
-#   output -- where you attach rendered content to send back to the UI
-#   session -- the connection to the current user's browser session
-################################################################################
+# ===========================================================================
 
 server <- function(input, output, session) {
   
   # -- REACTIVE VALUES ------------------------------------------------------
-  # reactiveValues() creates a shared "state" object that any part of the server
-  # can read or write. Whenever a value changes, anything that depends on it
-  # automatically re-runs (like a spreadsheet cell formula updating).
   rv <- reactiveValues(
     admin_auth = FALSE,
     submission_success = FALSE,
     submission_error = NULL,
     submissions = db_load_submissions(),
-    # Single source of truth — approved items are filtered with
-    # rv$submissions[rv$submissions$approval_status == "Approved", ]
     approved_trigger = 0,
-    selected_marker = NULL,   # stores the ID of the currently clicked map marker
-    selected_type = NULL,     # "painting" or "submission" to distinguish marker types
-    filter_painting_id = NULL, # when set, the Compare tab only shows comparisons for this painting
-    map_filter = "all"        # controls which markers are visible: "all", "paintings", or "submissions"
+    selected_marker = NULL,
+    selected_type = NULL,
+    filter_painting_id = NULL,
+    map_filter = "all"
   )
   
-  # UPDATED: Tracks which basemap is currently displayed to avoid unnecessary redraws
   current_basemap <- reactiveVal("minimal")
   
   
+  # -- AUTO-REFRESH SUBMISSIONS ON TAB SWITCH --------------------------------
+  observeEvent(input$main_tabs, {
+    tab <- input$main_tabs
+    if (tab %in% c("Gallery", "Compare", "Map")) {
+      fresh <- db_load_submissions()
+      if (nrow(fresh) != nrow(rv$submissions)) {
+        rv$submissions <- fresh
+        rv$approved_trigger <- rv$approved_trigger + 1
+      }
+    }
+  })
+  
+  
   # -- GALLERY / MAP "VIEW COMPARISONS" NAVIGATION ---------------------------
-  # When a "View Comparisons" link is clicked from a gallery card or map panel,
-  # this handler stores the painting ID to filter the Compare tab, then navigates.
   observeEvent(input$go_compare_painting, {
     val <- input$go_compare_painting
-    # From gallery cards: a list with $id (painting ID) and $t (timestamp).
-    # From map info panels: a raw numeric from Math.random().
     
-    # Extract the painting ID depending on the format
     if (is.list(val) && !is.null(val$id)) {
       painting_id <- as.integer(val$id)
     } else if (is.numeric(val)) {
@@ -3223,8 +2968,6 @@ server <- function(input, output, session) {
       painting_id <- NULL
     }
     
-    # Only set the filter if it matches a real painting ID.
-    # Otherwise, clear any existing filter so Compare shows all.
     if (!is.null(painting_id) && painting_id %in% paintings_data$id) {
       rv$filter_painting_id <- as.integer(painting_id)
     } else {
@@ -3234,37 +2977,28 @@ server <- function(input, output, session) {
     session$sendCustomMessage("switchTab", "Compare")
   })
   
-  # -- "SEE ALL" COMPARISONS RESET ------------------------------------------
-  # Clears the painting filter so the Compare tab shows all comparisons again.
   observeEvent(input$clear_compare_filter, {
     rv$filter_painting_id <- NULL
   })
   
+  
   # -- CONTRIBUTE BUTTON FROM GALLERY CARD ----------------------------------
-  # When "+ Contribute" is clicked on a gallery card, pre-select that painting
-  # in the Submit form dropdown and navigate to the Contribute tab.
   observeEvent(input$contribute_for_painting, {
     val <- input$contribute_for_painting
     if (!is.null(val$id)) {
       updateSelectInput(session, "submit_painting", selected = as.character(val$id))
     }
     session$sendCustomMessage("switchTab", "Contribute")
+    shinyjs::delay(100, shinyjs::runjs("selectContributeType('landscape');"))
   })
   
-  # -- STATS DISPLAY --------------------------------------------------------
-  # These render the live submission counts shown in the hero stats strip.
-  output$stat_submissions <- renderText({ as.character(nrow(rv$submissions)) })
-  # nrow() counts how many rows are in the submissions data frame.
-  # as.character() converts the number to a string for display.
-  # This automatically re-runs whenever rv$submissions changes.
   
+  # -- STATS DISPLAY --------------------------------------------------------
+  output$stat_submissions <- renderText({ as.character(nrow(rv$submissions)) })
   output$stat_approved <- renderText({ as.character(nrow(rv$submissions[rv$submissions$approval_status == "Approved", ])) })
   
   
   # -- PAINTING CARDS --------------------------------------------------------
-  # Dynamically generates one HTML card per painting from the CSV data.
-  # Shows submission count per painting and a "View Comparisons" link
-  # when approved comparisons exist for that painting.
   output$painting_cards <- renderUI({
     
     all_subs <- rv$submissions
@@ -3275,7 +3009,6 @@ server <- function(input, output, session) {
       data.frame(Var1 = character(), Freq = integer(), stringsAsFactors = FALSE)
     }
     
-    # Count APPROVED landscape submissions per painting (for "View Comparisons").
     approved_subs <- rv$submissions[rv$submissions$approval_status == "Approved" &
                                       (is.na(rv$submissions$submission_type) | rv$submissions$submission_type == "landscape"), ]
     approved_counts <- if (nrow(approved_subs) > 0) {
@@ -3284,12 +3017,10 @@ server <- function(input, output, session) {
       data.frame(Var1 = character(), Freq = integer(), stringsAsFactors = FALSE)
     }
     
-    # Find ALL approved museum photo submissions per painting.
     museum_subs <- rv$submissions[rv$submissions$approval_status == "Approved" &
                                     !is.na(rv$submissions$submission_type) &
                                     rv$submissions$submission_type == "museum_photo", ]
     
-    # Build a lookup: painting_id -> list of ALL approved museum photo submissions
     museum_photos_lookup <- list()
     if (nrow(museum_subs) > 0) {
       for (j in 1:nrow(museum_subs)) {
@@ -3304,19 +3035,18 @@ server <- function(input, output, session) {
     cards <- lapply(1:nrow(paintings_data), function(i) {
       p <- paintings_data[i, ]
       
-      # Look up how many total submissions exist for this painting.
       count_match <- sub_counts[sub_counts$Var1 == as.character(p$id), "Freq"]
       sub_count <- if (length(count_match) > 0) count_match[1] else 0
       
-      # Look up how many APPROVED landscape comparisons exist.
       approved_match <- approved_counts[approved_counts$Var1 == as.character(p$id), "Freq"]
       approved_count <- if (length(approved_match) > 0) approved_match[1] else 0
       
-      # Check for museum photos for this painting.
       museum_list <- museum_photos_lookup[[as.character(p$id)]]
       museum_count <- if (!is.null(museum_list)) length(museum_list) else 0
       
-      # Build JSON array of museum photos for the cycling lightbox
+      is_private <- !is.null(p$museum_name) && !is.na(p$museum_name) &&
+        grepl("private collection", p$museum_name, ignore.case = TRUE)
+      
       museum_json <- if (museum_count > 0) {
         photos_arr <- lapply(museum_list, function(ms) {
           list(url = ms$photo_url, name = ms$name)
@@ -3327,19 +3057,18 @@ server <- function(input, output, session) {
       }
       
       tags$div(class = "painting-card",
+               `data-title` = tolower(p$title),
+               `data-artist` = tolower(p$artist),
                
                tags$div(class = "painting-card-img-wrap",
                         tags$img(src = p$image_url, class = "painting-image", alt = p$title),
                         tags$div(class = "painting-card-badge", p$year),
-                        # Museum photo badge — shows count, opens cycling lightbox
-                        if (museum_count > 0) {
+                        if (is_private) {
+                          tags$div(class = "private-collection-badge", HTML("&#128274; Private Collection"))
+                        } else if (museum_count > 0) {
                           tags$div(
                             class = "museum-photo-badge",
-                            onclick = sprintf(
-                              "event.stopPropagation(); openMuseumLightbox('%s', %s);",
-                              gsub("'", "\\\\'", p$title),
-                              museum_json
-                            ),
+                            onclick = sprintf("event.stopPropagation(); openMuseumLightbox('%s', %s);", gsub("'", "\\\\'", p$title), museum_json),
                             title = "View museum photos",
                             HTML(paste0("&#127963; Museum Photo", ifelse(museum_count > 1, "s", ""),
                                         if (museum_count > 1) paste0(" (", museum_count, ")") else ""))
@@ -3364,10 +3093,7 @@ server <- function(input, output, session) {
                                           },
                                           tags$div(class = "painting-card-cta",
                                                    style = "color: var(--sage-light);",
-                                                   onclick = sprintf(
-                                                     "event.stopPropagation(); Shiny.setInputValue('contribute_for_painting', {id: %d, t: Date.now()});",
-                                                     p$id
-                                                   ),
+                                                   onclick = sprintf("event.stopPropagation(); Shiny.setInputValue('contribute_for_painting', {id: %d, t: Date.now()});", p$id),
                                                    HTML("&#43; Contribute")
                                           )
                                  )
@@ -3380,33 +3106,20 @@ server <- function(input, output, session) {
   })
   
   
-  # -- MAP (UPDATED) --------------------------------------------------------
-  # UPDATED: Replaced default pin markers with red/blue circle markers.
-  # Changed base tiles to CartoDB.Positron for a cleaner look.
-  # Added split layout with info panel, marker click detection, and
-  # dynamic blue markers for approved user submissions.
-  # Red circle markers for Bierstadt paintings, blue for approved submissions.
-  # Clicking a marker updates the info panel on the right side of the layout.
-  
+  # -- MAP ------------------------------------------------------------------
   output$main_map <- renderLeaflet({
-    # Base map only — markers are added reactively via leafletProxy
-    # so they can be toggled by the filter buttons.
     leaflet() %>%
       addProviderTiles(providers$CartoDB.Positron, group = "minimal") %>%
       setView(lng = -98.5, lat = 39.8, zoom = 4)
   })
   
-  # -- MAP MARKER OBSERVER ---------------------------------------------------
-  # Reactively draws painting markers (red) and submission markers (blue)
-  # based on rv$map_filter. Uses leafletProxy to add/remove markers without
-  # re-rendering the entire map.
+  # Map marker observer
   observe({
     approved <- rv$submissions[rv$submissions$approval_status == "Approved", ]
     rv$approved_trigger
     filter <- rv$map_filter
-    artist_filter <- input$map_artist_filter  # "" means all artists
+    artist_filter <- input$map_artist_filter
     
-    # Filter paintings by artist if one is selected
     filtered_paintings <- if (!is.null(artist_filter) && artist_filter != "") {
       paintings_data[paintings_data$artist == artist_filter, ]
     } else {
@@ -3415,39 +3128,23 @@ server <- function(input, output, session) {
     
     proxy <- leafletProxy("main_map")
     
-    # -- PAINTING MARKERS (red) --
     proxy %>% clearGroup("paintings")
     if (filter %in% c("all", "paintings") && nrow(filtered_paintings) > 0) {
       proxy %>% addCircleMarkers(
         data = filtered_paintings,
         lng = ~longitude, lat = ~latitude,
-        radius = 8,
-        color = "#A85D3F",
-        fillColor = "#C2714F",
-        fillOpacity = 0.85,
-        weight = 2,
-        stroke = TRUE,
-        group = "paintings",
-        layerId = ~paste0("painting_", id),
-        label = ~title,
-        labelOptions = labelOptions(
-          style = list("font-weight" = "600", "font-family" = "DM Sans, sans-serif"),
-          textsize = "13px",
-          direction = "top",
-          offset = c(0, -12)
-        )
+        radius = 8, color = "#A85D3F", fillColor = "#C2714F", fillOpacity = 0.85,
+        weight = 2, stroke = TRUE, group = "paintings",
+        layerId = ~paste0("painting_", id), label = ~title,
+        labelOptions = labelOptions(style = list("font-weight" = "600", "font-family" = "DM Sans, sans-serif"), textsize = "13px", direction = "top", offset = c(0, -12))
       )
     }
     
-    # -- SUBMISSION MARKERS (blue) --
-    # Only show landscape submissions on the map (not museum_photo submissions).
     proxy %>% clearGroup("submissions")
     if (filter %in% c("all", "submissions") && nrow(approved) > 0) {
       valid_subs <- approved[!is.na(approved$latitude) & !is.na(approved$longitude), ]
-      # Exclude museum_photo submissions from map markers
       valid_subs <- valid_subs[is.na(valid_subs$submission_type) | valid_subs$submission_type != "museum_photo", ]
       
-      # If an artist filter is active, only show submissions linked to that artist's paintings
       if (!is.null(artist_filter) && artist_filter != "" && nrow(valid_subs) > 0) {
         artist_painting_ids <- filtered_paintings$id
         valid_subs <- valid_subs[valid_subs$painting_id %in% artist_painting_ids, ]
@@ -3462,62 +3159,42 @@ server <- function(input, output, session) {
         proxy %>% addCircleMarkers(
           data = valid_subs,
           lng = ~longitude, lat = ~latitude,
-          radius = 8,
-          color = "#2563EB",
-          fillColor = "#3B82F6",
-          fillOpacity = 0.85,
-          weight = 2,
-          stroke = TRUE,
-          group = "submissions",
+          radius = 8, color = "#2563EB", fillColor = "#3B82F6", fillOpacity = 0.85,
+          weight = 2, stroke = TRUE, group = "submissions",
           layerId = ~paste0("submission_", submission_id),
           label = ~paste0(painting_title, " (", name, ")"),
-          labelOptions = labelOptions(
-            style = list("font-weight" = "600", "font-family" = "DM Sans, sans-serif"),
-            textsize = "13px",
-            direction = "top",
-            offset = c(0, -10)
-          )
+          labelOptions = labelOptions(style = list("font-weight" = "600", "font-family" = "DM Sans, sans-serif"), textsize = "13px", direction = "top", offset = c(0, -10))
         )
       }
     }
     
-    # -- MUSEUM MARKERS (dark red) --
     proxy %>% clearGroup("museums")
     if (filter %in% c("all", "museums")) {
       museum_data <- filtered_paintings[!is.na(filtered_paintings$museum_latitude) & !is.na(filtered_paintings$museum_longitude), ]
       if (nrow(museum_data) > 0) {
+        museum_data <- museum_data[is.na(museum_data$museum_name) |
+                                     !grepl("private collection", museum_data$museum_name, ignore.case = TRUE), ]
+      }
+      if (nrow(museum_data) > 0) {
         proxy %>% addCircleMarkers(
           data = museum_data,
           lng = ~museum_longitude, lat = ~museum_latitude,
-          radius = 8,
-          color = "#DC3545",
-          fillColor = "#E25563",
-          fillOpacity = 0.85,
-          weight = 2,
-          stroke = TRUE,
-          group = "museums",
+          radius = 8, color = "#DC3545", fillColor = "#E25563", fillOpacity = 0.85,
+          weight = 2, stroke = TRUE, group = "museums",
           layerId = ~paste0("museum_", id),
           label = ~paste0(title, " \u2014 ", museum_name),
-          labelOptions = labelOptions(
-            style = list("font-weight" = "600", "font-family" = "DM Sans, sans-serif"),
-            textsize = "13px",
-            direction = "top",
-            offset = c(0, -10)
-          )
+          labelOptions = labelOptions(style = list("font-weight" = "600", "font-family" = "DM Sans, sans-serif"), textsize = "13px", direction = "top", offset = c(0, -10))
         )
       }
     }
   })
   
+  
   # -- MAP FILTER TOGGLE -----------------------------------------------------
-  # Handles clicks on the filter buttons above the map.
-  # Updates rv$map_filter which triggers the marker observer to redraw,
-  # and sends JS to swap the active class on the buttons.
   observeEvent(input$set_map_filter, {
     new_filter <- input$set_map_filter
     if (new_filter %in% c("all", "paintings", "submissions", "museums")) {
       rv$map_filter <- new_filter
-      # Update the active button styling via JS
       shinyjs::runjs(sprintf("
         document.querySelectorAll('.map-filter-btn').forEach(function(btn) { btn.classList.remove('active'); });
         document.getElementById('map_filter_%s').classList.add('active');
@@ -3525,16 +3202,13 @@ server <- function(input, output, session) {
     }
   })
   
+  
   # -- USER LIVE LOCATION MARKER --------------------------------------------
-  # Draws a pulsing blue dot on the map at the user's current GPS position.
-  # Uses a custom divIcon with CSS animation. The watchPosition JS sends
-  # updated coordinates continuously, and this observer redraws the marker.
   observeEvent(input$user_location, {
     loc <- input$user_location
     proxy <- leafletProxy("main_map")
     
     if (is.null(loc)) {
-      # User toggled tracking off — remove the marker
       proxy %>% clearGroup("user_location")
       return()
     }
@@ -3544,19 +3218,13 @@ server <- function(input, output, session) {
       addMarkers(
         lng = loc$lng, lat = loc$lat,
         group = "user_location",
-        icon = makeIcon(
-          iconUrl = NULL,
-          iconWidth = 18, iconHeight = 18,
-          iconAnchorX = 9, iconAnchorY = 9
-        ),
+        icon = makeIcon(iconUrl = NULL, iconWidth = 18, iconHeight = 18, iconAnchorX = 9, iconAnchorY = 9),
         options = markerOptions(interactive = FALSE)
       )
     
-    # Replace the default marker with a pulsing custom div via JS
     shinyjs::runjs("
       (function() {
         var markers = document.querySelectorAll('.leaflet-marker-icon');
-        // Find the user location marker (last added, no src)
         for (var i = markers.length - 1; i >= 0; i--) {
           var m = markers[i];
           if (!m.src || m.src === '' || m.src === window.location.href) {
@@ -3575,11 +3243,8 @@ server <- function(input, output, session) {
     ")
   })
   
-  # -- MARKER CLICK -> INFO PANEL (UPDATED) ----------------------------------
-  # UPDATED: New observeEvent() that detects marker clicks on the map.
-  # Parses the layerId prefix to determine if a painting or submission
-  # was clicked, then stores the selection in rv$selected_marker and
-  # rv$selected_type so the info panel re-renders.
+  
+  # -- MARKER CLICK -> INFO PANEL -------------------------------------------
   observeEvent(input$main_map_marker_click, {
     click <- input$main_map_marker_click
     if (is.null(click) || is.null(click$id)) return()
@@ -3602,12 +3267,12 @@ server <- function(input, output, session) {
     
     leafletProxy("main_map") %>%
       flyTo(lng = click$lng, lat = click$lat, zoom = max(input$main_map_zoom, 8))
+    
+    session$sendCustomMessage("scrollToInfoPanel", list(t = as.numeric(Sys.time())))
   })
   
   
-  # -- GO TO MUSEUM OBSERVER -------------------------------------------------
-  # When the user clicks "View Museum" in a painting's info panel, this flies
-  # the map to the museum marker and switches the info panel to museum mode.
+  # -- GO TO MUSEUM OBSERVER ------------------------------------------------
   observeEvent(input$go_to_museum, {
     pid <- input$go_to_museum$id
     if (is.null(pid)) return()
@@ -3615,10 +3280,8 @@ server <- function(input, output, session) {
     p <- paintings_data[paintings_data$id == pid, ]
     if (nrow(p) == 0) return()
     p <- p[1, ]
-    
     if (is.na(p$museum_latitude) || is.na(p$museum_longitude)) return()
     
-    # Ensure museums are visible on the map
     if (!rv$map_filter %in% c("all", "museums")) {
       rv$map_filter <- "all"
       shinyjs::runjs("
@@ -3627,19 +3290,15 @@ server <- function(input, output, session) {
       ")
     }
     
-    # Switch info panel to museum mode for this painting
     rv$selected_marker <- pid
     rv$selected_type <- "museum"
     
-    # Fly to the museum location
     leafletProxy("main_map") %>%
       flyTo(lng = p$museum_longitude, lat = p$museum_latitude, zoom = max(input$main_map_zoom, 8))
   })
   
-  # -- GO TO PAINTING OBSERVER -----------------------------------------------
-  # When the user clicks "View Painting" in a museum's info panel, this flies
-  # the map to the painting's landscape location and switches the info panel
-  # to painting mode. Mirror of the go_to_museum observer above.
+  
+  # -- GO TO PAINTING OBSERVER ----------------------------------------------
   observeEvent(input$go_to_painting, {
     pid <- input$go_to_painting$id
     if (is.null(pid)) return()
@@ -3647,10 +3306,8 @@ server <- function(input, output, session) {
     p <- paintings_data[paintings_data$id == pid, ]
     if (nrow(p) == 0) return()
     p <- p[1, ]
-    
     if (is.na(p$latitude) || is.na(p$longitude)) return()
     
-    # Ensure paintings are visible on the map
     if (!rv$map_filter %in% c("all", "paintings")) {
       rv$map_filter <- "all"
       shinyjs::runjs("
@@ -3659,22 +3316,15 @@ server <- function(input, output, session) {
       ")
     }
     
-    # Switch info panel to painting mode
     rv$selected_marker <- pid
     rv$selected_type <- "painting"
     
-    # Fly to the painting's landscape location
     leafletProxy("main_map") %>%
       flyTo(lng = p$longitude, lat = p$latitude, zoom = max(input$main_map_zoom, 8))
   })
   
-  # -- INFO PANEL CONTENT (UPDATED) ------------------------------------------
-  # UPDATED: New renderUI() that populates the right-side info panel.
-  # Four states:
-  #   1. No marker selected: shows a placeholder with instructions.
-  #   2. Painting marker: shows title, artist, year, image, context, coords.
-  #   3. Submission marker: shows painting title, submitter, photo, observations, coords.
-  #   4. Museum marker: shows museum name, painting housed there, image, coords.
+  
+  # -- INFO PANEL CONTENT ---------------------------------------------------
   output$map_info_content <- renderUI({
     if (is.null(rv$selected_marker) || is.null(rv$selected_type)) {
       return(tags$div(class = "map-info-placeholder",
@@ -3688,7 +3338,6 @@ server <- function(input, output, session) {
       if (nrow(p) == 0) return(NULL)
       p <- p[1, ]
       
-      # Check if approved comparisons exist for this painting
       approved_for_painting <- rv$submissions[rv$submissions$approval_status == "Approved" & rv$submissions$painting_id == p$id, ]
       ap_count <- nrow(approved_for_painting)
       
@@ -3701,22 +3350,25 @@ server <- function(input, output, session) {
         tags$div(class = "map-info-meta", paste0(p$artist, " | ", p$year)),
         tags$img(class = "map-info-image", src = p$image_url, alt = p$title),
         tags$p(class = "map-info-context", p$context),
-        # Show "View Comparison(s)" button if approved comparisons exist
         if (ap_count > 0) {
           tags$div(class = "map-info-cta",
                    onclick = sprintf("Shiny.setInputValue('go_compare_painting', {id: %d, t: Date.now()});", p$id),
                    HTML(paste0("View Comparison", ifelse(ap_count != 1, "s", ""), " &rarr;"))
           )
         },
-        # Show "View Museum" button if museum location exists for this painting
-        if (!is.null(p$museum_latitude) && !is.na(p$museum_latitude) &&
-            !is.null(p$museum_longitude) && !is.na(p$museum_longitude)) {
+        if (!is.null(p$museum_name) && !is.na(p$museum_name) &&
+            grepl("private collection", p$museum_name, ignore.case = TRUE)) {
+          tags$div(class = "map-info-private-notice",
+                   HTML("&#128274;"),
+                   tags$span("This painting is held in a private collection and is not publicly viewable.")
+          )
+        } else if (!is.null(p$museum_latitude) && !is.na(p$museum_latitude) &&
+                   !is.null(p$museum_longitude) && !is.na(p$museum_longitude)) {
           tags$div(class = "map-info-cta museum",
                    onclick = sprintf("Shiny.setInputValue('go_to_museum', {id: %d, t: Date.now()});", p$id),
                    HTML("View Museum &rarr;")
           )
         },
-        # "Get Directions" button — opens Google Maps with directions to this location
         tags$div(class = "map-info-cta travel",
                  onclick = sprintf("window.open('https://www.google.com/maps/dir/?api=1&destination=%f,%f', '_blank');", p$latitude, p$longitude),
                  HTML("Get Directions &rarr;")
@@ -3752,12 +3404,10 @@ server <- function(input, output, session) {
         if (!is.null(sub$observations) && sub$observations != "") {
           tags$div(class = "map-info-observations", sub$observations)
         },
-        # Always show View Comparison since this IS an approved submission
         tags$div(class = "map-info-cta",
                  onclick = sprintf("Shiny.setInputValue('go_compare_painting', {id: %d, t: Date.now()});", sub$painting_id),
                  HTML("View Comparison &rarr;")
         ),
-        # "Get Directions" button
         tags$div(class = "map-info-cta travel",
                  onclick = sprintf("window.open('https://www.google.com/maps/dir/?api=1&destination=%f,%f', '_blank');", sub$latitude, sub$longitude),
                  HTML("Get Directions &rarr;")
@@ -3778,14 +3428,12 @@ server <- function(input, output, session) {
       if (nrow(p) == 0) return(NULL)
       p <- p[1, ]
       
-      # Check for approved museum photo submissions for this painting
       museum_subs <- rv$submissions[rv$submissions$approval_status == "Approved" &
                                       !is.na(rv$submissions$submission_type) &
                                       rv$submissions$submission_type == "museum_photo" &
                                       rv$submissions$painting_id == p$id, ]
       museum_count <- nrow(museum_subs)
       
-      # Build JSON array for the cycling lightbox
       museum_json <- if (museum_count > 0) {
         photos_arr <- lapply(1:museum_count, function(j) {
           list(url = museum_subs[j, "photo_url"], name = museum_subs[j, "name"])
@@ -3810,23 +3458,17 @@ server <- function(input, output, session) {
                  },
                  alt = ifelse(!is.null(p$museum_name) && !is.na(p$museum_name), p$museum_name, p$title)),
         tags$p(class = "map-info-context", paste0("This museum or collection currently holds \"", p$title, "\" by ", p$artist, " (", p$year, ").")),
-        # "View Museum Photos" button — opens cycling lightbox if museum photos exist
         if (museum_count > 0) {
           tags$div(class = "map-info-cta",
-                   onclick = sprintf("openMuseumLightbox('%s', %s);",
-                                     gsub("'", "\\\\'", p$title),
-                                     museum_json),
+                   onclick = sprintf("openMuseumLightbox('%s', %s);", gsub("'", "\\\\'", p$title), museum_json),
                    HTML(paste0("View Museum Photo", ifelse(museum_count > 1, "s", ""),
-                               if (museum_count > 1) paste0(" (", museum_count, ")") else "",
-                               " &rarr;"))
+                               if (museum_count > 1) paste0(" (", museum_count, ")") else "", " &rarr;"))
           )
         },
-        # "View Painting" button — flies map to the painting's landscape location
         tags$div(class = "map-info-cta museum",
                  onclick = sprintf("Shiny.setInputValue('go_to_painting', {id: %d, t: Date.now()});", p$id),
                  HTML("View Painting &rarr;")
         ),
-        # "Get Directions" button — directions to the museum
         tags$div(class = "map-info-cta travel",
                  onclick = sprintf("window.open('https://www.google.com/maps/dir/?api=1&destination=%f,%f', '_blank');", p$museum_latitude, p$museum_longitude),
                  HTML("Get Directions &rarr;")
@@ -3846,12 +3488,9 @@ server <- function(input, output, session) {
   })
   
   outputOptions(output, "main_map", suspendWhenHidden = FALSE)
-  # Keeps the map rendered even when the Map tab isn't visible
   
-  # -- BASEMAP AUTO-SWITCH ------------------------------------------
-  # UPDATED: Switches from minimal CartoDB tiles to Esri satellite imagery
-  # when the user zooms in past level 8, and back when they zoom out.
-  # Uses leafletProxy to swap tile layers without re-rendering the map.
+  
+  # -- BASEMAP AUTO-SWITCH ---------------------------------------------------
   observeEvent(input$main_map_zoom, {
     zoom <- input$main_map_zoom
     if (is.null(zoom)) return()
@@ -3859,75 +3498,46 @@ server <- function(input, output, session) {
     proxy <- leafletProxy("main_map")
     
     if (zoom >= 8 && current_basemap() != "satellite") {
-      # Zoomed in -- switch to satellite imagery
-      proxy %>%
-        clearGroup("minimal") %>%
-        addProviderTiles(providers$Esri.WorldImagery, group = "satellite")
+      proxy %>% clearGroup("minimal") %>% addProviderTiles(providers$Esri.WorldImagery, group = "satellite")
       current_basemap("satellite")
-      
     } else if (zoom < 8 && current_basemap() != "minimal") {
-      # Zoomed out -- switch back to minimal tiles
-      proxy %>%
-        clearGroup("satellite") %>%
-        addProviderTiles(providers$CartoDB.Positron, group = "minimal")
+      proxy %>% clearGroup("satellite") %>% addProviderTiles(providers$CartoDB.Positron, group = "minimal")
       current_basemap("minimal")
     }
   })
   
-  # Triggers a window resize event when the Map tab is opened
   observeEvent(input$main_tabs, {
     if (input$main_tabs == "Map") {
-      shinyjs::delay(200, {
-        shinyjs::runjs("window.dispatchEvent(new Event('resize'));")
-      })
+      shinyjs::delay(200, { shinyjs::runjs("window.dispatchEvent(new Event('resize'));") })
     }
-    
-    # Clear the comparison filter whenever the user navigates AWAY from Compare.
-    # This way, returning to Compare later always shows all comparisons,
-    # unless the user clicks "View Comparisons" from a gallery card again.
     if (input$main_tabs != "Compare") {
       rv$filter_painting_id <- NULL
     }
   })
   
-  # -- SUBMISSION FORM MESSAGES --------------------------------------------
-  # Renders a success or error alert above the form after a submission attempt.
+  
+  # -- SUBMISSION FORM MESSAGES ---------------------------------------------
   output$submit_message <- renderUI({
     if (rv$submission_success) {
-      tags$div(class = "alert-success-custom",
-               HTML("&#10003; Photo submitted successfully! It's pending admin review.")
-               # &#10003; is the HTML code for the " checkmark character.
-      )
+      tags$div(class = "alert-success-custom", HTML("&#10003; Photo submitted successfully! It's pending admin review."))
     } else if (!is.null(rv$submission_error)) {
-      # !is.null() checks that there IS an error message stored.
-      tags$div(class = "alert-error-custom",
-               HTML(paste0("&#10007; ", rv$submission_error))
-               # &#10007; is the  cross/X character. paste0 appends the error message.
-      )
+      tags$div(class = "alert-error-custom", HTML(paste0("&#10007; ", rv$submission_error)))
     }
-    # If neither condition is true, renderUI returns nothing (no message shown).
   })
   
   
-  # -- FORM SUBMISSION HANDLER ----------------------------------------------
-  # Runs when the Submit button is clicked. Validates all fields, then saves
-  # the submission to disk if everything is valid.
+  # -- FORM SUBMISSION HANDLER -----------------------------------------------
   observeEvent(input$submit_button, {
     
-    # Reset any previous success/error state before processing.
     rv$submission_success <- FALSE
     rv$submission_error <- NULL
     
-    # -- VALIDATION ------------------------------------------------------
-    # Validate based on submission type.
     sub_type <- input$submit_type
     
-    # For landscape and museum_photo, an existing painting must be selected.
     if (sub_type %in% c("landscape", "museum_photo") && input$submit_painting == "") {
       rv$submission_error <- "Please select a painting."
       return()
     }
-    # For user_painting, title and artist are required.
     if (sub_type == "user_painting") {
       if (is.null(input$submit_painting_title) || trimws(input$submit_painting_title) == "") {
         rv$submission_error <- "Please enter the painting title."
@@ -3951,14 +3561,10 @@ server <- function(input, output, session) {
       return()
     }
     
-    # -- SAVE SUBMISSION --------------------------------------------------
     tryCatch({
-      
       file_data <- readBin(input$submit_photo$datapath, "raw", file.info(input$submit_photo$datapath)$size)
       base64_image <- paste0("data:image/jpeg;base64,", base64enc::base64encode(file_data))
       
-      # Build the painting_id: for landscape/museum_photo it comes from the dropdown;
-      # for user_painting it's NA (no existing painting to link to).
       pid <- if (sub_type %in% c("landscape", "museum_photo")) {
         as.integer(input$submit_painting)
       } else {
@@ -3986,16 +3592,10 @@ server <- function(input, output, session) {
       
       rv$submissions <- rbind(rv$submissions, new_submission)
       db_insert_submission(new_submission)
-      # Writes the new submission to Supabase.
-      
       rv$submission_success <- TRUE
-      # Triggers the success message to appear above the form.
       
-      # Return to landing page after a short delay so the user sees the success message
       shinyjs::delay(2000, shinyjs::runjs("showContributeLanding();"))
       
-      # -- RESET FORM FIELDS --------------------------------------------
-      # Clear all inputs back to their default/empty state after successful submit.
       updateTextInput(session, "submit_name", value = "")
       updateTextInput(session, "submit_email", value = "")
       updateSelectInput(session, "submit_painting", selected = "")
@@ -4004,30 +3604,21 @@ server <- function(input, output, session) {
       updateTextAreaInput(session, "submit_observations", value = "")
       
     }, error = function(e) {
-      # If anything above throws an error, this runs instead of crashing the app.
       rv$submission_error <- paste("Failed:", e$message)
-      # e$message contains the technical error description from R.
     })
   })
   
   
-  # -- COMPARISON GALLERY --------------------------------------------------
-  # Generates the grid of approved photo thumbnails shown on the Compare tab.
-  # When rv$filter_painting_id is set (from clicking "View Comparisons" on a
-  # gallery card), only shows comparisons for that specific painting, along
-  # with a banner showing which painting is being filtered and a "See All" button.
+  # -- COMPARISON GALLERY ----------------------------------------------------
   output$comparison_gallery <- renderUI({
     rv$approved_trigger
     approved <- rv$submissions[rv$submissions$approval_status == "Approved", ]
     filter_id <- rv$filter_painting_id
     
     if (nrow(approved) == 0) {
-      return(tags$div(class = "no-comparisons",
-                      HTML("No approved comparisons yet. Be the first to contribute!")
-      ))
+      return(tags$div(class = "no-comparisons", HTML("No approved comparisons yet. Be the first to contribute!")))
     }
     
-    # Apply filter if set
     if (!is.null(filter_id)) {
       filtered <- approved[approved$painting_id == filter_id, ]
       filter_painting <- paintings_data[paintings_data$id == filter_id, ]
@@ -4037,7 +3628,6 @@ server <- function(input, output, session) {
     }
     
     if (nrow(filtered) == 0) {
-      # Filter is active but no comparisons match (shouldn't normally happen)
       return(tagList(
         tags$div(class = "compare-filter-banner",
                  tags$span(paste0("No comparisons found for this painting.")),
@@ -4053,9 +3643,11 @@ server <- function(input, output, session) {
       painting <- paintings_data[paintings_data$id == sub$painting_id, ]
       
       tags$div(class = "comparison-thumb",
+               `data-submitter` = tolower(sub$name),
+               `data-painting` = if (nrow(painting) > 0) tolower(painting$title[1]) else "",
+               `data-artist` = if (nrow(painting) > 0) tolower(painting$artist[1]) else "",
                onclick = sprintf("openComparisonLightbox('%s', '%s')", painting$image_url, sub$photo_url),
                tags$div(class = "comparison-thumb-submitter", sub$name),
-               # Submitter's name shown in the top-left corner of the thumbnail.
                tags$img(src = painting$image_url, alt = painting$title),
                tags$div(class = "comparison-thumb-overlay",
                         tags$div(class = "comparison-thumb-label", HTML("&#8644; Compare"))
@@ -4063,9 +3655,7 @@ server <- function(input, output, session) {
       )
     })
     
-    # Build the final output: filter banner (if filtered) + grid
     tagList(
-      # Show the filter banner only when a specific painting is being viewed
       if (!is.null(filter_id)) {
         tags$div(class = "compare-filter-banner",
                  tags$span(class = "compare-filter-text",
@@ -4081,41 +3671,26 @@ server <- function(input, output, session) {
   })
   
   
-  # -- ADMIN AUTHENTICATION ------------------------------------------------
+  # -- ADMIN AUTHENTICATION -------------------------------------------------
   observeEvent(input$admin_login, {
-    # Runs when the "Sign In" button on the Login tab is clicked.
     if (input$admin_password == "admin123") rv$admin_auth <- TRUE
-    # Simple hardcoded password check. Sets admin_auth to TRUE on success.
-    # NOTE: This is not secure for production -- password should be hashed/stored safely.
   })
   
   output$admin_authenticated <- reactive({ rv$admin_auth })
-  # Exposes the authentication state to the UI so conditionalPanel() can use it.
-  # reactive() creates a reactive expression that re-evaluates when rv$admin_auth changes.
-  
   outputOptions(output, "admin_authenticated", suspendWhenHidden = FALSE)
-  # Same as with the map -- prevents Shiny from pausing this output when the tab is hidden,
-  # since conditionalPanel needs it available even when Login tab isn't active.
   
   
-  # -- ADMIN TABLE ----------------------------------------------------------
-  # Renders the interactive data table of all submissions for the admin to review.
-  # -- ADMIN FILTERED DATA --------------------------------------------------
-  # Reactive expression that filters submissions based on admin dropdown selections.
-  # Used by both the table and the approve/reject/delete handlers to ensure
-  # row indices always match the displayed table.
+  # -- ADMIN TABLE -----------------------------------------------------------
   admin_filtered <- reactive({
     input$refresh_admin
     subs <- rv$submissions
     if (nrow(subs) == 0) return(subs)
     
-    # Filter by submission type
     type_filter <- input$admin_type_filter
     if (!is.null(type_filter) && type_filter != "") {
       subs <- subs[!is.na(subs$submission_type) & subs$submission_type == type_filter, ]
     }
     
-    # Filter by approval status
     status_filter <- input$admin_status_filter
     if (!is.null(status_filter) && status_filter != "") {
       subs <- subs[subs$approval_status == status_filter, ]
@@ -4129,10 +3704,8 @@ server <- function(input, output, session) {
     
     if (nrow(filtered) == 0) return(datatable(data.frame(Message = "No submissions match the current filters."), rownames = FALSE))
     
-    # For user_painting submissions, show painting_title instead of painting_id
     display <- filtered[, c("submission_id", "name", "submission_type", "painting_id", "latitude", "longitude", "submission_date", "approval_status")]
     
-    # Replace painting_id with painting title for readability
     display$painting_id <- sapply(display$painting_id, function(pid) {
       if (is.na(pid)) return("(user painting)")
       match_row <- paintings_data[paintings_data$id == pid, ]
@@ -4142,20 +3715,14 @@ server <- function(input, output, session) {
     
     datatable(
       display,
-      options = list(
-        pageLength = 25,
-        order = list(list(6, 'desc'))
-        # Sort by submission_date descending (column index 6, 0-based).
-      ),
+      options = list(pageLength = 25, order = list(list(6, 'desc'))),
       rownames = FALSE,
       selection = 'single'
     )
   })
   
   
-  # -- APPROVE SUBMISSION --------------------------------------------------
-  # Uses admin_filtered() to map the selected table row back to the correct
-  # submission_id, since filters may cause row indices to differ from rv$submissions.
+  # -- APPROVE SUBMISSION ---------------------------------------------------
   observeEvent(input$approve_submission, {
     if (length(input$admin_table_rows_selected) > 0) {
       idx <- input$admin_table_rows_selected
@@ -4163,19 +3730,15 @@ server <- function(input, output, session) {
       if (idx > nrow(filtered)) return()
       sid <- filtered[idx, "submission_id"]
       
-      # Update in Supabase
       db_update_status(sid, "Approved")
-      
-      # Update in-memory by matching submission_id
       rv$submissions[rv$submissions$submission_id == sid, "approval_status"] <- "Approved"
       rv$approved_trigger <- rv$approved_trigger + 1
-      
       showNotification("Approved!", type = "message")
     }
   })
   
   
-  # -- REJECT SUBMISSION ------------------------------------------------------
+  # -- REJECT SUBMISSION ----------------------------------------------------
   observeEvent(input$reject_submission, {
     if (length(input$admin_table_rows_selected) > 0) {
       idx <- input$admin_table_rows_selected
@@ -4185,12 +3748,12 @@ server <- function(input, output, session) {
       
       db_update_status(sid, "Rejected")
       rv$submissions[rv$submissions$submission_id == sid, "approval_status"] <- "Rejected"
-      
       showNotification("Rejected.", type = "warning")
     }
   })
   
-  # -- DELETE SUBMISSION ------------------------------------------------------
+  
+  # -- DELETE SUBMISSION ----------------------------------------------------
   observeEvent(input$delete_submission, {
     if (length(input$admin_table_rows_selected) > 0) {
       idx <- input$admin_table_rows_selected
@@ -4198,22 +3761,16 @@ server <- function(input, output, session) {
       if (idx > nrow(filtered)) return()
       sid <- filtered[idx, "submission_id"]
       
-      # Delete from Supabase
       db_delete_submission(sid)
-      
-      # Remove from in-memory data frame by submission_id
       rv$submissions <- rv$submissions[rv$submissions$submission_id != sid, ]
       rv$approved_trigger <- rv$approved_trigger + 1
-      
       showNotification("Deleted.", type = "error")
     }
   })
   
   
-  # -- REFRESH ADMIN DATA --------------------------------------------------
+  # -- REFRESH ADMIN DATA ---------------------------------------------------
   observeEvent(input$refresh_admin, {
-    # Re-reads submissions from Supabase.
-    # Useful if data was modified externally or by another admin session.
     rv$submissions <- db_load_submissions()
     rv$approved_trigger <- rv$approved_trigger + 1
     showNotification("Data refreshed from database!", type = "message")
@@ -4221,10 +3778,8 @@ server <- function(input, output, session) {
 }
 
 
-################################################################################
+# ===========================================================================
 # LAUNCH THE APP
-# shinyApp() wires the UI and server together and starts the application.
-# When you click "Run App" in RStudio, this is the line that actually
-# launches the web server and opens the browser.
-################################################################################
+# ===========================================================================
+
 shinyApp(ui = ui, server = server)
