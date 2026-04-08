@@ -2299,7 +2299,7 @@ ui <- page_navbar(
              tags$div(class = "map-filter-btn", id = "map_filter_submissions",
                       onclick = "Shiny.setInputValue('set_map_filter', 'submissions');",
                       tags$span(class = "legend-dot blue"),
-                      "Submissions"
+                      "Current Photos"
              ),
              tags$div(class = "map-filter-btn", id = "map_filter_museums",
                       onclick = "Shiny.setInputValue('set_map_filter', 'museums');",
