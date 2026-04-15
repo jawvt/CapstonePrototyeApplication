@@ -2382,29 +2382,32 @@ ui <- page_navbar(
     ),
     
     tags$div(id = "contribute-landing", class = "contribute-landing",
-             style = "grid-template-columns: repeat(2, 1fr);",
-             
              tags$div(class = "contribute-type-card",
                       onclick = "selectContributeType('landscape')",
-                      tags$div(class = "contribute-type-icon", HTML("&#127774;")),
-                      tags$div(class = "contribute-type-title", "Photograph the Location"),
+                      tags$div(class = "contribute-type-title", "Landscape Photo"),
                       tags$div(class = "contribute-type-desc",
-                               "Visit the real-world site where a painting was created and photograph what the landscape looks like today."
-                               ),
+                               "Visit a painting's real-world location and photograph what it looks like today."
+                      ),
                       tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
              ),
-             #Card 2: Artwork / Painting (combined)
              tags$div(class = "contribute-type-card",
-                      onclick = "selectContributeType('artwork_upload')",
-                      tags$div(class = "contribute-type-icon", HTML("&#127963;")),
-                      tags$div(class = "contribute-type-title", "Artwork / Painting"),
+                      onclick = "selectContributeType('museum_photo')",
+                      tags$div(class = "contribute-type-title", "Museum Photo"),
                       tags$div(class = "contribute-type-desc",
-                               "Photograph a painting in a museum or add a new historical landscape painting."
+                               "Photograph a painting hanging in a museum or gallery and share the experience."
+                      ),
+                      tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
+             ),
+             tags$div(class = "contribute-type-card",
+                      onclick = "selectContributeType('user_painting')",
+                      tags$div(class = "contribute-type-title", "Upload a Painting"),
+                      tags$div(class = "contribute-type-desc",
+                               "Add a new historical landscape painting to grow the collection beyond Bierstadt."
                       ),
                       tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
              )
-             ),
-                 
+    ),
+    
     tags$div(id = "contribute-form-wrap", class = "form-wrap", style = "display: none;",
              tags$div(class = "form-card",
                       tags$div(class = "contribute-back-btn",
@@ -2435,16 +2438,9 @@ ui <- page_navbar(
                         )
                       ),
                       conditionalPanel(
-                        condition = "input.submit_type === 'artwork_upload'",
+                        condition = "input.submit_type === 'user_painting'",
                         tags$div(class = "form-group",
-                                 radioButtons("artwork_subtype", "What are you submitting?",
-                                              choices = c(
-                                                "Museum / Gallery Photo of an existing painting" = "museum_photo",
-                                                "New historical landscape painting" = "user_painting"
-                                              ),
-                                              selected = "museum_photo",
-                                              inline = TRUE)
-                        )
+                                 textInput("submit_painting_title", "Painting Title", placeholder = "Storm in the Rocky Mountains")
                         ),
                         tags$div(class = "form-group",
                                  textInput("submit_artist_name", "Artist Name", placeholder = "Albert Bierstadt")
@@ -2840,6 +2836,43 @@ ui <- page_navbar(
         document.body.style.overflow = '';
       };
 
+      window.openUserPaintingDetail = function(dataJson) {
+        var p = JSON.parse(decodeURIComponent(dataJson));
+
+        var state = p.state || '';
+        var region = p.region || '';
+        var locationNotes = p.location_notes || '';
+        var locParts = [];
+        if (state) locParts.push(state);
+        if (region) locParts.push(region);
+        var locText = locParts.length > 0 ? locParts.join(' — ') : 'Location Undiscovered';
+
+        var html = '<div style=\"text-align:center; margin-bottom:24px;\">' +
+          '<img src=\"' + p.image_url + '\" alt=\"' + p.title + '\" style=\"max-width:100%; max-height:50vh; border-radius:var(--radius-md); box-shadow:var(--shadow-glass-lg); object-fit:contain;\">' +
+          '</div>' +
+          '<h2 style=\"font-family:DM Serif Display,Georgia,serif; font-size:32px; color:var(--text-primary); margin-bottom:8px;\">' + p.title + '</h2>' +
+          '<div style=\"color:var(--terra-light); font-size:14px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px;\">' + p.artist + (p.year ? ' | ' + p.year : '') + '</div>' +
+          '<div style=\"display:inline-block; background:var(--glass-bg); border:1px solid var(--glass-border-subtle); padding:6px 16px; border-radius:20px; font-size:12px; font-weight:700; color:' + (locParts.length > 0 ? 'var(--sage-light)' : 'var(--amber)') + '; margin-bottom:20px;\">' +
+          (locParts.length > 0 ? '&#128205; ' : '&#128270; ') + locText + '</div>' +
+          '<div style=\"display:inline-block; margin-left:8px; background:rgba(232,151,107,0.15); border:1px solid rgba(232,151,107,0.35); padding:6px 16px; border-radius:20px; font-size:11px; font-weight:700; color:var(--terra-light); text-transform:uppercase; letter-spacing:1px; margin-bottom:20px;\">Community Submitted</div>';
+
+        if (locationNotes) {
+          html += '<div style=\"background:var(--glass-bg-light); border-left:3px solid var(--sage); padding:12px 16px; border-radius:0 var(--radius-sm) var(--radius-sm) 0; margin-bottom:20px; font-size:13px; color:var(--text-secondary); font-style:italic;\">' + locationNotes + '</div>';
+        }
+
+        if (p.context) {
+          html += '<p style=\"color:var(--text-secondary); font-size:15px; line-height:1.7; margin-bottom:24px;\">' + p.context + '</p>';
+        }
+
+        if (p.submitter) {
+          html += '<p style=\"color:var(--text-muted); font-size:13px; margin-bottom:24px;\">Submitted by ' + p.submitter + '</p>';
+        }
+
+        document.getElementById('painting-detail-content').innerHTML = html;
+        document.getElementById('painting-detail-lightbox').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+      };
+
       // -- 3D CARD TILT EFFECT ---------------------------------------------
       function initTilt() {
         document.querySelectorAll('.painting-card').forEach(function(card) {
@@ -2956,10 +2989,11 @@ ui <- page_navbar(
       };
 
       // -- CONTRIBUTE LANDING PAGE -----------------------------------------
-var typeLabels = {
-  'landscape': 'Photograph the Location',
-  'museum_photo': 'Photograph the Artwork'
-};
+      var typeLabels = {
+        'landscape': 'Submit a Landscape Photo',
+        'museum_photo': 'Submit a Museum Photo',
+        'user_painting': 'Upload a Painting'
+      };
 
       window.selectContributeType = function(type) {
         $('input[name=\"submit_type\"][value=\"' + type + '\"]').prop('checked', true).trigger('change');
@@ -3228,7 +3262,55 @@ server <- function(input, output, session) {
       )
     })
     
-    tagList(cards)
+    # Build cards for approved user-submitted paintings
+    user_paintings <- rv$submissions[rv$submissions$approval_status == "Approved" &
+                                       !is.na(rv$submissions$submission_type) &
+                                       rv$submissions$submission_type == "user_painting", ]
+    
+    user_cards <- if (nrow(user_paintings) > 0) {
+      lapply(1:nrow(user_paintings), function(i) {
+        up <- user_paintings[i, ]
+        up_title <- if (!is.na(up$painting_title) && up$painting_title != "") up$painting_title else "Untitled"
+        up_artist <- if (!is.na(up$artist_name) && up$artist_name != "") up$artist_name else "Unknown Artist"
+        up_year <- if (!is.na(up$painting_year) && up$painting_year != "") up$painting_year else ""
+        up_context <- if (!is.na(up$painting_context) && up$painting_context != "") up$painting_context else ""
+        up_state <- if ("state" %in% names(up) && !is.na(up$state) && up$state != "") up$state else ""
+        up_region <- if ("region" %in% names(up) && !is.na(up$region) && up$region != "") up$region else ""
+        up_location_notes <- if ("location_notes" %in% names(up) && !is.na(up$location_notes) && up$location_notes != "") up$location_notes else ""
+        
+        detail_data <- list(
+          title = up_title,
+          artist = up_artist,
+          year = up_year,
+          context = up_context,
+          image_url = up$photo_url,
+          state = up_state,
+          region = up_region,
+          location_notes = up_location_notes,
+          submitter = up$name
+        )
+        detail_json <- URLencode(jsonlite::toJSON(detail_data, auto_unbox = TRUE), reserved = TRUE)
+        
+        tags$div(class = "painting-card",
+                 `data-title` = tolower(up_title),
+                 `data-artist` = tolower(up_artist),
+                 onclick = sprintf("openUserPaintingDetail('%s')", detail_json),
+                 
+                 tags$div(class = "painting-card-img-wrap",
+                          tags$img(src = up$photo_url, class = "painting-image", alt = up_title),
+                          if (up_year != "") tags$div(class = "painting-card-badge", up_year),
+                          tags$div(class = "painting-card-overlay",
+                                   tags$h3(class = "painting-card-overlay-title", up_title),
+                                   tags$div(class = "painting-card-overlay-meta", up_artist)
+                          )
+                 )
+        )
+      })
+    } else {
+      list()
+    }
+    
+    tagList(cards, user_cards)
   })
   
   
@@ -3630,10 +3712,6 @@ server <- function(input, output, session) {
                                if (museum_count > 1) paste0(" (", museum_count, ")") else "", " &rarr;"))
           )
         },
-        tags$div(class = "map-info-cta museum",
-                 onclick = sprintf("Shiny.setInputValue('go_to_painting', {id: %d, t: Date.now()});", p$id),
-                 HTML("View Painting &rarr;")
-        ),
         tags$div(class = "map-info-cta travel",
                  onclick = sprintf("window.open('https://www.google.com/maps/dir/?api=1&destination=%f,%f', '_blank');", p$museum_latitude, p$museum_longitude),
                  HTML("Get Directions &rarr;")
