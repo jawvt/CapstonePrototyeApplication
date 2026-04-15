@@ -3095,10 +3095,7 @@ server <- function(input, output, session) {
       updateSelectInput(session, "submit_painting", selected = as.character(val$id))
     }
     session$sendCustomMessage("switchTab", "Contribute")
-<<<<<<< HEAD
-=======
     shinyjs::delay(100, shinyjs::runjs("selectContributeType('landscape');"))
->>>>>>> main
   })
   
   
