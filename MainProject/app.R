@@ -2382,48 +2382,32 @@ ui <- page_navbar(
     ),
     
     tags$div(id = "contribute-landing", class = "contribute-landing",
-             style = "grid-template-columns: repeat(2, 1fr);",
-             
              tags$div(class = "contribute-type-card",
                       onclick = "selectContributeType('landscape')",
-                      tags$div(class = "contribute-type-icon", HTML("&#127774;")),
-                      tags$div(class = "contribute-type-title", "Photograph the Location"),
+                      tags$div(class = "contribute-type-title", "Landscape Photo"),
                       tags$div(class = "contribute-type-desc",
-                               "Visit the real-world site where a painting was created and photograph what the landscape looks like today."
-                               ),
+                               "Visit a painting's real-world location and photograph what it looks like today."
+                      ),
                       tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
              ),
              tags$div(class = "contribute-type-card",
                       onclick = "selectContributeType('museum_photo')",
-                      tags$div(class = "contribute-type-icon", HTML("&#127963;")),
-                      tags$div(class = "contribute-type-title", "Photograph the Artwork"),
+                      tags$div(class = "contribute-type-title", "Museum Photo"),
                       tags$div(class = "contribute-type-desc",
-                               "Photograph the physical painting as it hangs in a museum, gallery, or other institution that houses the original work."
+                               "Photograph a painting hanging in a museum or gallery and share the experience."
                       ),
-                      tags$div(
-                        style = "display: flex; flex-direction: column; gap: 8px; text-align: left;",
-                        tags$div(
-                          style = "display: flex; align-items: flex-start; gap: 10px; background: var(--glass-bg-light); border: 1px solid var(--glass-border-subtle); border-radius: 10px; padding: 10px 14px;",
-                          tags$span(style = "font-size: 18px; flex-shrink: 0;", HTML("&#127963;")),
-                          tags$div(
-                            tags$div(style = "font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 2px;", "Museum or Gallery"),
-                            tags$div(style = "font-size: 12px; color: var(--text-muted);", "e.g. Smithsonian, MoMA, local art museum")
-                          )
-                        ),
-                        tags$div(
-                          style = "display: flex; align-items: flex-start; gap: 10px; background: var(--glass-bg-light); border: 1px solid var(--glass-border-subtle); border-radius: 10px; padding: 10px 14px;",
-                          tags$span(style = "font-size: 18px; flex-shrink: 0;", HTML("&#127968;")),
-                          tags$div(
-                            tags$div(style = "font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 2px;", "Other Institution"),
-                            tags$div(style = "font-size: 12px; color: var(--text-muted);", "e.g. university collection, government building, historic site")
-                          )
-                        )
-                      )
+                      tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
              ),
-             tags$div(class = "contribute-type-cta", style = "margin-top: 18px;", HTML("Get Started &rarr;"))
-           )  # <-- closes museum card
-  ),         # <-- closes contribute-landing
-                 
+             tags$div(class = "contribute-type-card",
+                      onclick = "selectContributeType('user_painting')",
+                      tags$div(class = "contribute-type-title", "Upload a Painting"),
+                      tags$div(class = "contribute-type-desc",
+                               "Add a new historical landscape painting to grow the collection beyond Bierstadt."
+                      ),
+                      tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
+             )
+    ),
+    
     tags$div(id = "contribute-form-wrap", class = "form-wrap", style = "display: none;",
              tags$div(class = "form-card",
                       tags$div(class = "contribute-back-btn",
@@ -3005,10 +2989,11 @@ ui <- page_navbar(
       };
 
       // -- CONTRIBUTE LANDING PAGE -----------------------------------------
-var typeLabels = {
-  'landscape': 'Photograph the Location',
-  'museum_photo': 'Photograph the Artwork'
-};
+      var typeLabels = {
+        'landscape': 'Submit a Landscape Photo',
+        'museum_photo': 'Submit a Museum Photo',
+        'user_painting': 'Upload a Painting'
+      };
 
       window.selectContributeType = function(type) {
         $('input[name=\"submit_type\"][value=\"' + type + '\"]').prop('checked', true).trigger('change');
