@@ -3734,8 +3734,35 @@ server <- function(input, output, session) {
     }
     
     tryCatch({
-      file_data <- readBin(input$submit_photo$datapath, "raw", file.info(input$submit_photo$datapath)$size)
-      base64_image <- paste0("data:image/jpeg;base64,", base64enc::base64encode(file_data))
+      file_path <- input$submit_photo$datapath
+      file_name <- paste0(as.integer(Sys.time()), "_", input$submit_photo$name)
+      bucket <- "submissions"
+      
+      upload_url <- paste0(
+        Sys.getenv("SUPABASE_URL"),
+        "/storage/v1/object/", bucket, "/", file_name
+      )
+      
+      response <- httr::POST(
+        url = upload_url,
+        httr::add_headers(
+          "Authorization" = paste("Bearer", Sys.getenv("SUPABASE_SERVICE_KEY")),
+          "Content-Type" = input$submit_photo$type
+        ),
+        body = httr::upload_file(file_path)
+      )
+      
+      if (httr::status_code(response) != 200) {
+        rv$submission_error <- paste0(
+          "Image upload failed (", httr::status_code(response), "). Please try again."
+        )
+        return()
+      }
+      
+      photo_url <- paste0(
+        Sys.getenv("SUPABASE_URL"),
+        "/storage/v1/object/public/", bucket, "/", file_name
+      )
       
       pid <- if (sub_type %in% c("landscape", "museum_photo")) {
         as.integer(input$submit_painting)
