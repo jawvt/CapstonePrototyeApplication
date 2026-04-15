@@ -135,6 +135,9 @@ state_centers <- data.frame(
   lng = state.center$x,
   stringsAsFactors = FALSE
 )
+# R's state.center places Alaska/Hawaii at inset-map positions, not real coords
+state_centers[state_centers$state == "Alaska", c("lat", "lng")] <- c(64.2008, -152.4937)
+state_centers[state_centers$state == "Hawaii", c("lat", "lng")] <- c(20.7984, -156.3319)
 
 
 # ===========================================================================
@@ -578,11 +581,11 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(15,26,20,0.5) 0%, transparent 40%);
-  transition: opacity 0.4s;
+  background: rgba(15,26,20,0);
+  transition: background 0.4s;
 }
 
-.painting-card:hover .painting-card-img-wrap::after { opacity: 1; }
+.painting-card:hover .painting-card-img-wrap::after { background: rgba(15,26,20,0.15); }
 
 .painting-image {
   width: 100%;
@@ -664,6 +667,35 @@ body {
 }
 
 .painting-card:hover .painting-card-cta { gap: 10px; }
+
+.painting-card-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 20px;
+  background: linear-gradient(to top, rgba(15, 26, 20, 0.85) 0%, rgba(15, 26, 20, 0.4) 60%, transparent 100%);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.painting-card-overlay-title {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 18px;
+  color: #FFFFFF;
+  line-height: 1.3;
+  margin-bottom: 2px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.painting-card-overlay-meta {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
 
 /* --- Map (Split Layout) ---------------------------------- */
 .map-split-layout {
@@ -2675,23 +2707,22 @@ ui <- page_navbar(
         if (tabVal === 'Admin Login') {
           document.body.classList.remove('light-mode');
         } else {
-          document.body.classList.add('light-mode');
+          if (!document.body.classList.contains('light-mode')) {
+            document.body.classList.add('light-mode');
+          }
         }
       }
 
-      // Fire on every Shiny tab change (most reliable)
-      $(document).on('shiny:inputchanged', function(e) {
-        if (e.name === 'main_tabs') {
-          applyAdminTheme(e.value);
-        }
+      // Server-driven theme toggle (most reliable)
+      Shiny.addCustomMessageHandler('setTheme', function(tab) {
+        applyAdminTheme(tab);
       });
 
-      // Also re-apply when admin auth state changes (stays on same tab)
-      $(document).on('shiny:value', function(e) {
-        if (e.name === 'admin_authenticated') {
-          var activeTab = document.querySelector('.nav-link.active');
-          if (activeTab) applyAdminTheme(activeTab.getAttribute('data-value'));
-        }
+      // Fallback: also listen to Bootstrap tab events
+      $(document).on('shown.bs.tab', function(e) {
+        if (!e.target) return;
+        var tabVal = e.target.getAttribute('data-value');
+        if (tabVal) applyAdminTheme(tabVal);
       });
 
       var paintingsData = ", jsonlite::toJSON(paintings_data, auto_unbox = TRUE), ";
@@ -3003,7 +3034,6 @@ var typeLabels = {
         document.querySelectorAll('.mob-tab').forEach(function(btn) {
           btn.classList.toggle('active', btn.getAttribute('data-tab') === tabVal);
         });
-        applyAdminTheme(tabVal);
       });
 
       // -- MAP INFO SCROLL HINT + AUTO-SCROLL ------------------------------
@@ -3062,6 +3092,12 @@ server <- function(input, output, session) {
   )
   
   current_basemap <- reactiveVal("minimal")
+  
+  
+  # -- ADMIN DARK MODE (server-driven) ---------------------------------------
+  observeEvent(input$main_tabs, {
+    session$sendCustomMessage("setTheme", input$main_tabs)
+  }, ignoreInit = FALSE, ignoreNULL = FALSE)
   
   
   # -- AUTO-REFRESH SUBMISSIONS ON TAB SWITCH --------------------------------
@@ -3195,42 +3231,10 @@ server <- function(input, output, session) {
                             HTML(paste0("&#127963; Museum Photo", ifelse(museum_count > 1, "s", ""),
                                         if (museum_count > 1) paste0(" (", museum_count, ")") else ""))
                           )
-                        }
-               ),
-               
-               tags$div(class = "painting-info",
-                        tags$h3(class = "painting-title", p$title),
-                        tags$div(class = "painting-meta", paste0(p$artist)),
-                        {
-                          loc_parts <- c()
-                          if ("state" %in% names(p) && !is.na(p$state) && p$state != "") loc_parts <- c(loc_parts, p$state)
-                          if ("region" %in% names(p) && !is.na(p$region) && p$region != "") loc_parts <- c(loc_parts, p$region)
-                          if (length(loc_parts) > 0) {
-                            tags$div(style = "font-size: 12px; color: var(--sage-light); margin-bottom: 8px;",
-                                     HTML(paste0("&#128205; ", paste(loc_parts, collapse = " — "))))
-                          } else if (approved_count == 0) {
-                            tags$div(style = "font-size: 12px; color: var(--amber); margin-bottom: 8px;",
-                                     HTML("Location Undiscovered"))
-                          }
                         },
-                        tags$p(class = "painting-context", p$context),
-                        tags$div(class = "painting-card-footer",
-                                 tags$div(class = "submission-count-badge",
-                                          paste0(approved_count, " comparison", ifelse(approved_count != 1, "s", ""))
-                                 ),
-                                 tags$div(style = "display: flex; align-items: center; gap: 12px;",
-                                          if (approved_count > 0) {
-                                            tags$div(class = "painting-card-cta",
-                                                     onclick = sprintf("event.stopPropagation(); Shiny.setInputValue('go_compare_painting', {id: %d, t: Date.now()});", p$id),
-                                                     HTML(paste0("View Comparison", ifelse(approved_count != 1, "s", ""), " &rarr;"))
-                                            )
-                                          },
-                                          tags$div(class = "painting-card-cta",
-                                                   style = "color: var(--sage-light);",
-                                                   onclick = sprintf("event.stopPropagation(); Shiny.setInputValue('contribute_for_painting', {id: %d, t: Date.now()});", p$id),
-                                                   HTML("&#43; Contribute")
-                                          )
-                                 )
+                        tags$div(class = "painting-card-overlay",
+                                 tags$h3(class = "painting-card-overlay-title", p$title),
+                                 tags$div(class = "painting-card-overlay-meta", p$artist)
                         )
                )
       )
@@ -3341,31 +3345,42 @@ server <- function(input, output, session) {
       return()
     }
     
-    # Get state polygon from the maps package
-    state_map <- map("state", regions = tolower(st), plot = FALSE, fill = TRUE)
+    # Alaska and Hawaii are not in the maps "state" database (lower 48 only)
+    non_contiguous <- c("Alaska", "Hawaii")
     
-    # Zoom to fit the actual state bounds
-    x_range <- range(state_map$x, na.rm = TRUE)
-    y_range <- range(state_map$y, na.rm = TRUE)
-    
-    proxy %>%
-      addPolygons(
-        lng = state_map$x,
-        lat = state_map$y,
-        group = "state_highlight",
-        fillColor = "#E8976B",
-        fillOpacity = 0.15,
-        color = "#E8976B",
-        weight = 2,
-        opacity = 0.8,
-        options = pathOptions(interactive = FALSE)
-      ) %>%
-      flyToBounds(
-        lng1 = x_range[1],
-        lat1 = y_range[1],
-        lng2 = x_range[2],
-        lat2 = y_range[2]
-      )
+    if (st %in% non_contiguous) {
+      sc <- state_centers[state_centers$state == st, ]
+      if (nrow(sc) > 0) {
+        zoom <- if (st == "Alaska") 4 else 7
+        proxy %>% flyTo(lng = sc$lng[1], lat = sc$lat[1], zoom = zoom)
+      }
+    } else {
+      # Get state polygon from the maps package (lower 48 only)
+      state_map <- map("state", regions = tolower(st), plot = FALSE, fill = TRUE)
+      
+      # Zoom to fit the actual state bounds
+      x_range <- range(state_map$x, na.rm = TRUE)
+      y_range <- range(state_map$y, na.rm = TRUE)
+      
+      proxy %>%
+        addPolygons(
+          lng = state_map$x,
+          lat = state_map$y,
+          group = "state_highlight",
+          fillColor = "#E8976B",
+          fillOpacity = 0.15,
+          color = "#E8976B",
+          weight = 2,
+          opacity = 0.8,
+          options = pathOptions(interactive = FALSE)
+        ) %>%
+        flyToBounds(
+          lng1 = x_range[1],
+          lat1 = y_range[1],
+          lng2 = x_range[2],
+          lat2 = y_range[2]
+        )
+    }
     
     # Show paintings for this state in the info panel
     rv$selected_type <- "state_browse"
