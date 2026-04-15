@@ -2393,6 +2393,7 @@ ui <- page_navbar(
                                ),
                       tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
              ),
+             #Card 2: Artwork / Painting (combined)
              tags$div(class = "contribute-type-card",
                       onclick = "selectContributeType('artwork_upload')",
                       tags$div(class = "contribute-type-icon", HTML("&#127963;")),
@@ -2401,30 +2402,8 @@ ui <- page_navbar(
                                "Photograph a painting in a museum or add a new historical landscape painting."
                       ),
                       tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
+             )
              ),
-                      tags$div(
-                        style = "display: flex; flex-direction: column; gap: 8px; text-align: left;",
-                        tags$div(
-                          style = "display: flex; align-items: flex-start; gap: 10px; background: var(--glass-bg-light); border: 1px solid var(--glass-border-subtle); border-radius: 10px; padding: 10px 14px;",
-                          tags$span(style = "font-size: 18px; flex-shrink: 0;", HTML("&#127963;")),
-                          tags$div(
-                            tags$div(style = "font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 2px;", "Museum or Gallery"),
-                            tags$div(style = "font-size: 12px; color: var(--text-muted);", "e.g. Smithsonian, MoMA, local art museum")
-                          )
-                        ),
-                        tags$div(
-                          style = "display: flex; align-items: flex-start; gap: 10px; background: var(--glass-bg-light); border: 1px solid var(--glass-border-subtle); border-radius: 10px; padding: 10px 14px;",
-                          tags$span(style = "font-size: 18px; flex-shrink: 0;", HTML("&#127968;")),
-                          tags$div(
-                            tags$div(style = "font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 2px;", "Other Institution"),
-                            tags$div(style = "font-size: 12px; color: var(--text-muted);", "e.g. university collection, government building, historic site")
-                          )
-                        )
-                      )
-             ),
-             tags$div(class = "contribute-type-cta", style = "margin-top: 18px;", HTML("Get Started &rarr;"))
-           )  # <-- closes museum card
-  ),         # <-- closes contribute-landing
                  
     tags$div(id = "contribute-form-wrap", class = "form-wrap", style = "display: none;",
              tags$div(class = "form-card",
