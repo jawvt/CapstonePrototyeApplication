@@ -25,12 +25,47 @@ library(htmltools)
 library(DT)
 library(shinyjs)
 library(maps)
+library(httr)
 
 # ===========================================================================
 # DATABASE CONNECTION
 # ===========================================================================
 
 readRenviron(".Renviron")
+
+# --- Supabase Storage ----------------------------------------------------
+SUPABASE_URL      <- Sys.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY <- Sys.getenv("SUPABASE_ANON_KEY")
+STORAGE_BUCKET    <- "submissions"
+
+upload_to_storage <- function(file_path, submission_id, ext = "jpg") {
+  if (SUPABASE_URL == "" || SUPABASE_ANON_KEY == "") {
+    stop("SUPABASE_URL and SUPABASE_ANON_KEY must be set in .Renviron for image uploads.")
+  }
+  
+  filename <- paste0(submission_id, ".", ext)
+  content_type <- if (ext == "png") "image/png" else "image/jpeg"
+  upload_url <- paste0(SUPABASE_URL, "/storage/v1/object/", STORAGE_BUCKET, "/", filename)
+  
+  raw_bytes <- readBin(file_path, "raw", file.info(file_path)$size)
+  
+  res <- POST(
+    upload_url,
+    add_headers(
+      `Authorization` = paste("Bearer", SUPABASE_ANON_KEY),
+      `Content-Type`  = content_type,
+      `x-upsert`      = "true"
+    ),
+    body = raw_bytes
+  )
+  
+  if (status_code(res) >= 400) {
+    stop("Storage upload failed (", status_code(res), "): ",
+         content(res, "text", encoding = "UTF-8"))
+  }
+  
+  paste0(SUPABASE_URL, "/storage/v1/object/public/", STORAGE_BUCKET, "/", filename)
+}
 
 get_db_con <- function() {
   dbConnect(
@@ -63,6 +98,10 @@ db_load_submissions <- function() {
       state = character(),
       region = character(),
       location_notes = character(),
+      museum_name = character(),
+      museum_latitude = numeric(),
+      museum_longitude = numeric(),
+      museum_image_url = character(),
       stringsAsFactors = FALSE
     ))
   }
@@ -76,8 +115,9 @@ db_insert_submission <- function(sub_df) {
             "INSERT INTO submissions (submission_id, name, email, painting_id, photo_url,
      latitude, longitude, observations, submission_date, approval_status,
      submission_type, painting_title, artist_name, painting_year, painting_context,
-     state, region, location_notes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
+     state, region, location_notes,
+     museum_name, museum_latitude, museum_longitude, museum_image_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)",
             params = list(
               sub_df$submission_id,
               sub_df$name,
@@ -96,7 +136,11 @@ db_insert_submission <- function(sub_df) {
               sub_df$painting_context,
               sub_df$state,
               sub_df$region,
-              sub_df$location_notes
+              sub_df$location_notes,
+              sub_df$museum_name,
+              sub_df$museum_latitude,
+              sub_df$museum_longitude,
+              sub_df$museum_image_url
             )
   )
 }
@@ -117,6 +161,66 @@ db_delete_submission <- function(submission_id) {
             "DELETE FROM submissions WHERE submission_id = $1",
             params = list(submission_id)
   )
+}
+
+db_promote_to_painting <- function(sub_row) {
+  con <- get_db_con()
+  on.exit(dbDisconnect(con))
+  
+  has_museum <- !is.na(sub_row$museum_name) && sub_row$museum_name != ""
+  museum_name_val <- if (has_museum) as.character(sub_row$museum_name) else NA_character_
+  museum_lat_val <- if (has_museum && !is.na(sub_row$museum_latitude)) as.numeric(sub_row$museum_latitude) else NA_real_
+  museum_lng_val <- if (has_museum && !is.na(sub_row$museum_longitude)) as.numeric(sub_row$museum_longitude) else NA_real_
+  museum_img_val <- if (has_museum && !is.na(sub_row$museum_image_url) && sub_row$museum_image_url != "") as.character(sub_row$museum_image_url) else NA_character_
+  
+  result <- dbGetQuery(con,
+                       "INSERT INTO paintings (title, artist, \"year\", context, image_url, state, region, location_notes,
+                                    museum_name, museum_latitude, museum_longitude, museum_image_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     RETURNING id",
+                       params = list(
+                         as.character(sub_row$painting_title),
+                         as.character(sub_row$artist_name),
+                         as.character(ifelse(is.na(sub_row$painting_year) || sub_row$painting_year == "", "", sub_row$painting_year)),
+                         as.character(ifelse(is.na(sub_row$painting_context) || sub_row$painting_context == "", "", sub_row$painting_context)),
+                         as.character(sub_row$photo_url),
+                         as.character(ifelse(is.na(sub_row$state) || sub_row$state == "", NA_character_, sub_row$state)),
+                         as.character(ifelse(is.na(sub_row$region) || sub_row$region == "", NA_character_, sub_row$region)),
+                         as.character(ifelse(is.na(sub_row$location_notes) || sub_row$location_notes == "", NA_character_, sub_row$location_notes)),
+                         museum_name_val,
+                         museum_lat_val,
+                         museum_lng_val,
+                         museum_img_val
+                       )
+  )
+  new_id <- result$id[1]
+  dbExecute(con,
+            "UPDATE submissions SET painting_id = $1 WHERE submission_id = $2",
+            params = list(new_id, as.character(sub_row$submission_id))
+  )
+  new_id
+}
+
+db_update_painting_museum <- function(painting_id, museum_name, museum_lat, museum_lng, museum_img) {
+  con <- get_db_con()
+  on.exit(dbDisconnect(con))
+  dbExecute(con,
+            "UPDATE paintings SET museum_name = $1, museum_latitude = $2, museum_longitude = $3, museum_image_url = $4
+             WHERE id = $5",
+            params = list(
+              as.character(museum_name),
+              if (is.na(museum_lat)) NA_real_ else as.numeric(museum_lat),
+              if (is.na(museum_lng)) NA_real_ else as.numeric(museum_lng),
+              if (is.na(museum_img) || museum_img == "") NA_character_ else as.character(museum_img),
+              as.integer(painting_id)
+            )
+  )
+}
+
+db_load_paintings <- function() {
+  con <- get_db_con()
+  on.exit(dbDisconnect(con))
+  dbGetQuery(con, "SELECT * FROM paintings ORDER BY id")
 }
 
 
@@ -611,6 +715,44 @@ body {
   padding: 5px 14px;
   border-radius: 20px;
   z-index: 2;
+}
+
+.location-status-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 20px;
+  z-index: 2;
+  letter-spacing: 0.3px;
+  border: 1px solid;
+}
+
+.location-status-badge.discovered {
+  background: rgba(127, 168, 138, 0.25);
+  border-color: var(--sage);
+  color: var(--sage-light);
+}
+
+.location-status-badge.undiscovered {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.6);
+  color: #8B6F1A;
+}
+
+body.light-mode .location-status-badge.discovered {
+  background: rgba(95, 136, 104, 0.15);
+  color: #4A6F52;
+}
+
+body.light-mode .location-status-badge.undiscovered {
+  background: rgba(255, 255, 255, 0.92);
+  color: #8B6F1A;
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
 .painting-info {
@@ -2344,7 +2486,7 @@ ui <- page_navbar(
              ),
              tags$div(class = "artist-filter-wrap",
                       selectInput("map_artist_filter", NULL,
-                                  choices = c("All Artists" = "", sort(unique(paintings_data$artist))),
+                                  choices = c("All Painters" = "", sort(unique(paintings_data$artist))),
                                   selected = "",
                                   width = "180px")
              ),
@@ -2387,14 +2529,6 @@ ui <- page_navbar(
                       tags$div(class = "contribute-type-title", "Landscape Photo"),
                       tags$div(class = "contribute-type-desc",
                                "Visit a painting's real-world location and photograph what it looks like today."
-                      ),
-                      tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
-             ),
-             tags$div(class = "contribute-type-card",
-                      onclick = "selectContributeType('museum_photo')",
-                      tags$div(class = "contribute-type-title", "Museum Photo"),
-                      tags$div(class = "contribute-type-desc",
-                               "Photograph a painting hanging in a museum or gallery and share the experience."
                       ),
                       tags$div(class = "contribute-type-cta", HTML("Get Started &rarr;"))
              ),
@@ -2465,6 +2599,41 @@ ui <- page_navbar(
                         tags$div(class = "form-group",
                                  textInput("submit_location_notes", "Location Notes (optional)",
                                            placeholder = "Believed to be near...")
+                        ),
+                        tags$div(class = "form-group", style = "margin-top: 8px;",
+                                 tags$label(style = "display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none; letter-spacing: 0;",
+                                            tags$input(type = "checkbox", id = "include_museum_info", style = "width: 18px; height: 18px; cursor: pointer;",
+                                                       onchange = "document.getElementById('museum-info-fields').style.display = this.checked ? '' : 'none';"),
+                                            tags$span(style = "color: var(--text-primary); font-weight: 600;",
+                                                      HTML("Also add museum info for this painting?"))
+                                 )
+                        ),
+                        tags$div(id = "museum-info-fields", style = "display: none; padding: 16px; background: var(--glass-bg-light); border-radius: var(--radius-sm); border: 1px solid var(--glass-border-subtle); margin-top: 8px;",
+                                 tags$div(class = "form-group",
+                                          textInput("submit_museum_name", "Museum / Collection Name",
+                                                    placeholder = "Metropolitan Museum of Art")
+                                 ),
+                                 tags$div(class = "form-group",
+                                          tags$div(style = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;",
+                                                   tags$label("Museum GPS Coordinates", style = "margin-bottom: 0;"),
+                                                   tags$button(
+                                                     id = "use_museum_location_btn",
+                                                     class = "map-filter-btn",
+                                                     style = "padding: 6px 16px; font-size: 12px;",
+                                                     onclick = "getMuseumLocation();",
+                                                     HTML("&#9678; Use My Location")
+                                                   )
+                                          ),
+                                          tags$div(style = "display: grid; grid-template-columns: 1fr 1fr; gap: 16px;",
+                                                   tags$div(class = "form-group", style = "margin-bottom: 0;",
+                                                            numericInput("submit_museum_lat", NULL, value = NA, step = 0.0001)
+                                                   ),
+                                                   tags$div(class = "form-group", style = "margin-bottom: 0;",
+                                                            numericInput("submit_museum_lng", NULL, value = NA, step = 0.0001)
+                                                   )
+                                          ),
+                                          tags$div(id = "museum_location_status", style = "font-size: 12px; color: var(--text-muted); margin-top: 6px;")
+                                 )
                         )
                       ),
                       tags$div(class = "form-group",
@@ -2575,7 +2744,7 @@ ui <- page_navbar(
                                      style = "background: #DC3545; border-color: #DC3545; color: white;"),
                         tags$div(class = "artist-filter-wrap",
                                  selectInput("admin_type_filter", NULL,
-                                             choices = c("All Types" = "", "Landscape Photos" = "landscape", "Museum Photos" = "museum_photo", "User Paintings" = "user_painting"),
+                                             choices = c("All Types" = "", "Landscape Photos" = "landscape", "Museum Photos" = "museum_photo", "User Paintings" = "user_painting", "Museum Info Updates" = "add_museum"),
                                              selected = "", width = "180px")
                         ),
                         tags$div(class = "artist-filter-wrap",
@@ -2638,6 +2807,48 @@ ui <- page_navbar(
              tags$div(class = "lightbox-close", onclick = "closePaintingDetail()",
                       style = "position:fixed; top:24px; right:24px; z-index:10002;", HTML("&times;")),
              tags$div(id = "painting-detail-content", style = "max-width:800px; margin:0 auto;")
+    ),
+    
+    # Add Museum info modal
+    tags$div(id = "add-museum-modal",
+             style = "display:none; position:fixed; inset:0; background:rgba(8,12,10,0.85); z-index:10003; align-items:center; justify-content:center; padding:24px;",
+             tags$div(style = "background:var(--surface-dark-mid); border:1px solid var(--glass-border); border-radius:var(--radius-lg); padding:32px; max-width:500px; width:100%; box-shadow:var(--shadow-glass-lg); max-height:90vh; overflow-y:auto;",
+                      tags$div(style = "display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;",
+                               tags$h3(id = "add-museum-title", style = "font-family:'DM Serif Display',Georgia,serif; font-size:24px; color:var(--text-primary); margin:0;", "Add Museum Info"),
+                               tags$div(class = "lightbox-close", onclick = "closeAddMuseumModal()",
+                                        style = "position:relative; top:auto; right:auto; width:36px; height:36px; font-size:22px;", HTML("&times;"))
+                      ),
+                      tags$p(id = "add-museum-subtitle", style = "color:var(--text-secondary); font-size:14px; margin-bottom:20px; line-height:1.5;",
+                             "Help others find this painting by adding the museum or collection it's held at."),
+                      tags$div(class = "form-group",
+                               tags$label(style = "color:var(--text-secondary); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:block;", "Museum / Collection Name"),
+                               tags$input(type = "text", id = "add_museum_name_input", class = "form-control",
+                                          placeholder = "Metropolitan Museum of Art",
+                                          style = "width:100%; padding:12px 14px; background:rgba(255,255,255,0.06); border:1px solid var(--glass-border-subtle); border-radius:var(--radius-sm); color:var(--text-primary); font-size:14px;")
+                      ),
+                      tags$div(class = "form-group", style = "margin-top:16px;",
+                               tags$div(style = "display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;",
+                                        tags$label(style = "color:var(--text-secondary); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin:0;", "GPS Coordinates"),
+                                        tags$button(onclick = "getAddMuseumLocation();", class = "map-filter-btn",
+                                                    style = "padding:6px 14px; font-size:11px;", HTML("&#9678; Use My Location"))
+                               ),
+                               tags$div(style = "display:grid; grid-template-columns:1fr 1fr; gap:10px;",
+                                        tags$input(type = "number", id = "add_museum_lat_input", class = "form-control", step = "0.0001", placeholder = "Latitude",
+                                                   style = "width:100%; padding:12px 14px; background:rgba(255,255,255,0.06); border:1px solid var(--glass-border-subtle); border-radius:var(--radius-sm); color:var(--text-primary); font-size:14px;"),
+                                        tags$input(type = "number", id = "add_museum_lng_input", class = "form-control", step = "0.0001", placeholder = "Longitude",
+                                                   style = "width:100%; padding:12px 14px; background:rgba(255,255,255,0.06); border:1px solid var(--glass-border-subtle); border-radius:var(--radius-sm); color:var(--text-primary); font-size:14px;")
+                               ),
+                               tags$div(id = "add_museum_loc_status", style = "font-size:11px; color:var(--text-muted); margin-top:6px;")
+                      ),
+                      tags$div(class = "form-group", style = "margin-top:16px;",
+                               tags$label(style = "color:var(--text-secondary); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:block;", "Your Name (optional)"),
+                               tags$input(type = "text", id = "add_museum_name_user_input", class = "form-control", placeholder = "Jane Doe",
+                                          style = "width:100%; padding:12px 14px; background:rgba(255,255,255,0.06); border:1px solid var(--glass-border-subtle); border-radius:var(--radius-sm); color:var(--text-primary); font-size:14px;")
+                      ),
+                      tags$div(id = "add_museum_error", style = "color:var(--terra); font-size:13px; margin-top:12px; display:none;"),
+                      tags$button(onclick = "submitAddMuseum();", class = "btn-submit",
+                                  style = "width:100%; margin-top:20px;", HTML("Submit for Review &rarr;"))
+             )
     ),
     
     # Museum photo lightbox
@@ -2710,6 +2921,15 @@ ui <- page_navbar(
       });
 
       var paintingsData = ", jsonlite::toJSON(paintings_data, auto_unbox = TRUE), ";
+
+      Shiny.addCustomMessageHandler('updatePaintingsData', function(data) {
+        paintingsData = JSON.parse(data);
+      });
+
+      Shiny.addCustomMessageHandler('showPaintingDetail', function(data) {
+        var p = JSON.parse(data);
+        if (p) renderPaintingDetail(p);
+      });
 
       // -- COMPARISON LIGHTBOX ---------------------------------------------
       window.openComparisonLightbox = function(historicalUrl, modernUrl) {
@@ -2795,7 +3015,14 @@ ui <- page_navbar(
         for (var i = 0; i < paintingsData.length; i++) {
           if (paintingsData[i].id === id) { p = paintingsData[i]; break; }
         }
-        if (!p) return;
+        if (!p) {
+          Shiny.setInputValue('request_painting_detail', {id: id, t: Date.now()});
+          return;
+        }
+        renderPaintingDetail(p);
+      };
+
+      window.renderPaintingDetail = function(p) {
 
         var state = p.state || '';
         var region = p.region || '';
@@ -2803,28 +3030,76 @@ ui <- page_navbar(
         var locParts = [];
         if (state) locParts.push(state);
         if (region) locParts.push(region);
-        var locText = locParts.length > 0 ? locParts.join(' — ') : 'Location Undiscovered';
+        var locText = locParts.join(' — ');
 
-        var html = '<div style=\"text-align:center; margin-bottom:24px;\">' +
-          '<img src=\"' + p.image_url + '\" alt=\"' + p.title + '\" style=\"max-width:100%; max-height:50vh; border-radius:var(--radius-md); box-shadow:var(--shadow-glass-lg); object-fit:contain;\">' +
+        var isDiscovered = (p.approved_count || 0) > 0;
+        var hasMuseum = p.has_museum === true;
+        var museumName = p.museum_name || '';
+        var isPrivate = museumName && /private collection/i.test(museumName);
+
+        // Status chip: discovered (green) or undiscovered (amber)
+        var statusChip = '<div style=\"display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:700; letter-spacing:0.3px; border:1px solid; ' +
+          (isDiscovered
+            ? 'background:rgba(127,168,138,0.15); border-color:var(--sage); color:var(--sage-light);'
+            : 'background:rgba(226,185,76,0.12); border-color:rgba(226,185,76,0.6); color:var(--amber);');
+
+        var html = '<div style=\"text-align:center; margin-bottom:20px;\">' +
+          '<img src=\"' + p.image_url + '\" alt=\"' + p.title + '\" style=\"max-width:100%; max-height:45vh; border-radius:var(--radius-md); box-shadow:var(--shadow-glass-lg); object-fit:contain;\">' +
           '</div>' +
-          '<h2 style=\"font-family:DM Serif Display,Georgia,serif; font-size:32px; color:var(--text-primary); margin-bottom:8px;\">' + p.title + '</h2>' +
-          '<div style=\"color:var(--terra-light); font-size:14px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px;\">' + p.artist + ' | ' + p.year + '</div>' +
-          '<div style=\"display:inline-block; background:var(--glass-bg); border:1px solid var(--glass-border-subtle); padding:6px 16px; border-radius:20px; font-size:12px; font-weight:700; color:' + (locParts.length > 0 ? 'var(--sage-light)' : 'var(--amber)') + '; margin-bottom:20px;\">' +
-          (locParts.length > 0 ? '&#128205; ' : '&#128270; ') + locText + '</div>';
+          '<h2 style=\"font-family:DM Serif Display,Georgia,serif; font-size:30px; color:var(--text-primary); margin-bottom:4px; text-align:center;\">' + p.title + '</h2>' +
+          '<div style=\"color:var(--terra-light); font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:18px; text-align:center;\">' + p.artist + (p.year ? ' &middot; ' + p.year : '') + '</div>' +
+          '<div style=\"text-align:center; margin-bottom:22px;\">' + statusChip + '</div>';
 
-        if (locationNotes) {
-          html += '<div style=\"background:var(--glass-bg-light); border-left:3px solid var(--sage); padding:12px 16px; border-radius:0 var(--radius-sm) var(--radius-sm) 0; margin-bottom:20px; font-size:13px; color:var(--text-secondary); font-style:italic;\">' + locationNotes + '</div>';
+        // Location details (compact)
+        if (locText || locationNotes) {
+          html += '<div style=\"background:var(--glass-bg-light); border:1px solid var(--glass-border-subtle); padding:14px 18px; border-radius:var(--radius-sm); margin-bottom:18px;\">';
+          if (locText) {
+            html += '<div style=\"font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin-bottom:4px;\">Location</div>' +
+                    '<div style=\"color:var(--text-primary); font-size:14px; margin-bottom:' + (locationNotes ? '8px' : '0') + ';\">&#128205; ' + locText + '</div>';
+          }
+          if (locationNotes) {
+            html += '<div style=\"font-size:13px; color:var(--text-secondary); font-style:italic;\">' + locationNotes + '</div>';
+          }
+          html += '</div>';
         }
 
+        // Museum info (compact)
+        if (hasMuseum && !isPrivate) {
+          var hasMuseumCoords = p.museum_latitude != null && !isNaN(parseFloat(p.museum_latitude)) &&
+                                p.museum_longitude != null && !isNaN(parseFloat(p.museum_longitude));
+          html += '<div style=\"background:var(--glass-bg-light); border:1px solid var(--glass-border-subtle); padding:14px 18px; border-radius:var(--radius-sm); margin-bottom:18px;\">' +
+            '<div style=\"font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin-bottom:4px;\">Currently Held At</div>' +
+            '<div style=\"color:var(--text-primary); font-size:14px; margin-bottom:' + (hasMuseumCoords ? '10px' : '0') + ';\">&#127963; ' + museumName + '</div>';
+          if (hasMuseumCoords) {
+            html += '<div class=\"map-info-cta museum\" style=\"font-size:11px; padding:7px 14px; display:inline-flex;\" onclick=\"closePaintingDetail(); Shiny.setInputValue(&#39;go_to_museum&#39;, {id: ' + p.id + ', t: Date.now()});\">View on Map &rarr;</div>';
+          }
+          html += '</div>';
+        } else if (isPrivate) {
+          html += '<div style=\"background:var(--glass-bg-light); border:1px solid var(--glass-border-subtle); padding:14px 18px; border-radius:var(--radius-sm); margin-bottom:18px; color:var(--text-muted); font-size:13px; font-style:italic;\">' +
+            '&#128274; Held in a private collection' +
+            '</div>';
+        }
+
+        // Context (if present)
         if (p.context) {
-          html += '<p style=\"color:var(--text-secondary); font-size:15px; line-height:1.7; margin-bottom:24px;\">' + p.context + '</p>';
+          html += '<p style=\"color:var(--text-secondary); font-size:14px; line-height:1.7; margin-bottom:22px;\">' + p.context + '</p>';
         }
 
-        html += '<div style=\"display:flex; gap:12px; flex-wrap:wrap; justify-content:center;\">' +
-          '<div class=\"map-info-cta\" onclick=\"closePaintingDetail(); Shiny.setInputValue(&#39;go_compare_painting&#39;, {id: ' + p.id + ', t: Date.now()});\">View Comparisons &rarr;</div>' +
-          '<div class=\"map-info-cta travel\" onclick=\"closePaintingDetail(); Shiny.setInputValue(&#39;contribute_for_painting&#39;, {id: ' + p.id + ', t: Date.now()});\">+ Contribute</div>' +
-          '</div>';
+        // Action buttons — conditional based on state
+        html += '<div style=\"display:flex; gap:10px; flex-wrap:wrap; justify-content:center;\">';
+
+        if (isDiscovered) {
+          html += '<div class=\"map-info-cta\" onclick=\"closePaintingDetail(); Shiny.setInputValue(&#39;go_compare_painting&#39;, {id: ' + p.id + ', t: Date.now()});\">View Comparisons &rarr;</div>';
+          html += '<div class=\"map-info-cta travel\" onclick=\"closePaintingDetail(); Shiny.setInputValue(&#39;contribute_for_painting&#39;, {id: ' + p.id + ', t: Date.now()});\">&#43; Add Contemporary Photo</div>';
+        } else {
+          html += '<div class=\"map-info-cta\" onclick=\"closePaintingDetail(); Shiny.setInputValue(&#39;contribute_for_painting&#39;, {id: ' + p.id + ', t: Date.now()});\">&#43; Add Contemporary Photo</div>';
+        }
+
+        if (!hasMuseum) {
+          html += '<div class=\"map-info-cta museum\" onclick=\"openAddMuseumModal(' + p.id + ', &#39;' + (p.title || '').replace(/\\x27/g, \"\\\\\\x27\") + '&#39;);\">&#127963; Add Museum Info</div>';
+        }
+
+        html += '</div>';
 
         document.getElementById('painting-detail-content').innerHTML = html;
         document.getElementById('painting-detail-lightbox').style.display = 'block';
@@ -2836,41 +3111,70 @@ ui <- page_navbar(
         document.body.style.overflow = '';
       };
 
-      window.openUserPaintingDetail = function(dataJson) {
-        var p = JSON.parse(decodeURIComponent(dataJson));
+      // -- ADD MUSEUM MODAL ------------------------------------------------
+      var addMuseumPid = null;
 
-        var state = p.state || '';
-        var region = p.region || '';
-        var locationNotes = p.location_notes || '';
-        var locParts = [];
-        if (state) locParts.push(state);
-        if (region) locParts.push(region);
-        var locText = locParts.length > 0 ? locParts.join(' — ') : 'Location Undiscovered';
-
-        var html = '<div style=\"text-align:center; margin-bottom:24px;\">' +
-          '<img src=\"' + p.image_url + '\" alt=\"' + p.title + '\" style=\"max-width:100%; max-height:50vh; border-radius:var(--radius-md); box-shadow:var(--shadow-glass-lg); object-fit:contain;\">' +
-          '</div>' +
-          '<h2 style=\"font-family:DM Serif Display,Georgia,serif; font-size:32px; color:var(--text-primary); margin-bottom:8px;\">' + p.title + '</h2>' +
-          '<div style=\"color:var(--terra-light); font-size:14px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px;\">' + p.artist + (p.year ? ' | ' + p.year : '') + '</div>' +
-          '<div style=\"display:inline-block; background:var(--glass-bg); border:1px solid var(--glass-border-subtle); padding:6px 16px; border-radius:20px; font-size:12px; font-weight:700; color:' + (locParts.length > 0 ? 'var(--sage-light)' : 'var(--amber)') + '; margin-bottom:20px;\">' +
-          (locParts.length > 0 ? '&#128205; ' : '&#128270; ') + locText + '</div>' +
-          '<div style=\"display:inline-block; margin-left:8px; background:rgba(232,151,107,0.15); border:1px solid rgba(232,151,107,0.35); padding:6px 16px; border-radius:20px; font-size:11px; font-weight:700; color:var(--terra-light); text-transform:uppercase; letter-spacing:1px; margin-bottom:20px;\">Community Submitted</div>';
-
-        if (locationNotes) {
-          html += '<div style=\"background:var(--glass-bg-light); border-left:3px solid var(--sage); padding:12px 16px; border-radius:0 var(--radius-sm) var(--radius-sm) 0; margin-bottom:20px; font-size:13px; color:var(--text-secondary); font-style:italic;\">' + locationNotes + '</div>';
-        }
-
-        if (p.context) {
-          html += '<p style=\"color:var(--text-secondary); font-size:15px; line-height:1.7; margin-bottom:24px;\">' + p.context + '</p>';
-        }
-
-        if (p.submitter) {
-          html += '<p style=\"color:var(--text-muted); font-size:13px; margin-bottom:24px;\">Submitted by ' + p.submitter + '</p>';
-        }
-
-        document.getElementById('painting-detail-content').innerHTML = html;
-        document.getElementById('painting-detail-lightbox').style.display = 'block';
+      window.openAddMuseumModal = function(pid, title) {
+        addMuseumPid = pid;
+        document.getElementById('add-museum-title').textContent = 'Add Museum Info';
+        document.getElementById('add-museum-subtitle').textContent = 'Where is \"' + title + '\" currently held? Your submission will be reviewed before the painting is updated.';
+        document.getElementById('add_museum_name_input').value = '';
+        document.getElementById('add_museum_lat_input').value = '';
+        document.getElementById('add_museum_lng_input').value = '';
+        document.getElementById('add_museum_name_user_input').value = '';
+        document.getElementById('add_museum_loc_status').textContent = '';
+        document.getElementById('add_museum_error').style.display = 'none';
+        document.getElementById('add-museum-modal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
+      };
+
+      window.closeAddMuseumModal = function() {
+        document.getElementById('add-museum-modal').style.display = 'none';
+        document.body.style.overflow = '';
+        addMuseumPid = null;
+      };
+
+      window.getAddMuseumLocation = function() {
+        var statusEl = document.getElementById('add_museum_loc_status');
+        if (!navigator.geolocation) { statusEl.textContent = 'Geolocation not supported.'; return; }
+        statusEl.textContent = 'Getting your location...';
+        navigator.geolocation.getCurrentPosition(
+          function(pos) {
+            document.getElementById('add_museum_lat_input').value = pos.coords.latitude.toFixed(4);
+            document.getElementById('add_museum_lng_input').value = pos.coords.longitude.toFixed(4);
+            statusEl.textContent = 'Location set.';
+          },
+          function(err) { statusEl.textContent = err.code === 1 ? 'Access denied.' : 'Unable to get location.'; },
+          { enableHighAccuracy: true, timeout: 15000 }
+        );
+      };
+
+      window.submitAddMuseum = function() {
+        var errEl = document.getElementById('add_museum_error');
+        errEl.style.display = 'none';
+
+        var name = document.getElementById('add_museum_name_input').value.trim();
+        var lat = document.getElementById('add_museum_lat_input').value;
+        var lng = document.getElementById('add_museum_lng_input').value;
+        var submitter = document.getElementById('add_museum_name_user_input').value.trim();
+
+        if (!name) {
+          errEl.textContent = 'Please enter the museum name.';
+          errEl.style.display = 'block';
+          return;
+        }
+
+        Shiny.setInputValue('submit_add_museum', {
+          pid: addMuseumPid,
+          museum_name: name,
+          museum_lat: lat ? parseFloat(lat) : null,
+          museum_lng: lng ? parseFloat(lng) : null,
+          submitter: submitter,
+          t: Date.now()
+        });
+
+        closeAddMuseumModal();
+        closePaintingDetail();
       };
 
       // -- 3D CARD TILT EFFECT ---------------------------------------------
@@ -3041,6 +3345,35 @@ ui <- page_navbar(
         );
       };
 
+      window.getMuseumLocation = function() {
+        var statusEl = document.getElementById('museum_location_status');
+        var btn = document.getElementById('use_museum_location_btn');
+        if (!navigator.geolocation) {
+          if (statusEl) statusEl.textContent = 'Geolocation not supported.';
+          return;
+        }
+        if (statusEl) statusEl.textContent = 'Getting your location...';
+        btn.style.opacity = '0.5';
+        btn.style.pointerEvents = 'none';
+        navigator.geolocation.getCurrentPosition(
+          function(pos) {
+            Shiny.setInputValue('submit_museum_lat', pos.coords.latitude);
+            Shiny.setInputValue('submit_museum_lng', pos.coords.longitude);
+            $('#submit_museum_lat').val(pos.coords.latitude.toFixed(4));
+            $('#submit_museum_lng').val(pos.coords.longitude.toFixed(4));
+            if (statusEl) statusEl.textContent = 'Location set (' + pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4) + ')';
+            btn.style.opacity = '1';
+            btn.style.pointerEvents = 'auto';
+          },
+          function(err) {
+            if (statusEl) statusEl.textContent = err.code === 1 ? 'Location access denied.' : 'Unable to get location.';
+            btn.style.opacity = '1';
+            btn.style.pointerEvents = 'auto';
+          },
+          { enableHighAccuracy: true, timeout: 15000 }
+        );
+      };
+
       // -- MOBILE TAB BAR --------------------------------------------------
       window.mobileTabSwitch = function(tab) {
         var tabLink = document.querySelector('a.nav-link[data-value=\"' + tab + '\"]');
@@ -3100,12 +3433,15 @@ ui <- page_navbar(
 
 server <- function(input, output, session) {
   
+  `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || (length(a) == 1 && is.na(a))) b else a
+  
   # -- REACTIVE VALUES ------------------------------------------------------
   rv <- reactiveValues(
     admin_auth = FALSE,
     submission_success = FALSE,
     submission_error = NULL,
     submissions = db_load_submissions(),
+    paintings_data = db_load_paintings(),
     approved_trigger = 0,
     selected_marker = NULL,
     selected_type = NULL,
@@ -3121,6 +3457,37 @@ server <- function(input, output, session) {
     session$sendCustomMessage("setTheme", input$main_tabs)
   }, ignoreInit = FALSE, ignoreNULL = FALSE)
   
+  # -- SYNC JS PAINTINGS DATA ON PAGE LOAD -----------------------------------
+  enriched_paintings <- function() {
+    pd <- isolate(rv$paintings_data)
+    if (is.null(pd) || nrow(pd) == 0) return(pd)
+    subs <- isolate(rv$submissions)
+    approved <- subs[subs$approval_status == "Approved" &
+                       (is.na(subs$submission_type) | subs$submission_type == "landscape"), ]
+    counts <- if (nrow(approved) > 0) as.data.frame(table(approved$painting_id), stringsAsFactors = FALSE) else data.frame(Var1 = character(), Freq = integer())
+    pd$approved_count <- sapply(pd$id, function(id) {
+      m <- counts[counts$Var1 == as.character(id), "Freq"]
+      if (length(m) > 0) m[1] else 0
+    })
+    pd$has_museum <- !is.na(pd$museum_name) & pd$museum_name != ""
+    pd
+  }
+  
+  session$onFlushed(function() {
+    session$sendCustomMessage("updatePaintingsData",
+                              jsonlite::toJSON(enriched_paintings(), auto_unbox = TRUE))
+  }, once = TRUE)
+  
+  # -- PAINTING DETAIL FALLBACK (JS array not yet synced) --------------------
+  observeEvent(input$request_painting_detail, {
+    pid <- input$request_painting_detail$id
+    if (is.null(pid)) return()
+    p <- rv$paintings_data[rv$paintings_data$id == as.integer(pid), ]
+    if (nrow(p) == 0) return()
+    session$sendCustomMessage("showPaintingDetail",
+                              jsonlite::toJSON(p[1, ], auto_unbox = TRUE))
+  })
+  
   
   # -- AUTO-REFRESH SUBMISSIONS ON TAB SWITCH --------------------------------
   observeEvent(input$main_tabs, {
@@ -3129,7 +3496,10 @@ server <- function(input, output, session) {
       fresh <- db_load_submissions()
       if (nrow(fresh) != nrow(rv$submissions)) {
         rv$submissions <- fresh
+        rv$paintings_data <- db_load_paintings()
         rv$approved_trigger <- rv$approved_trigger + 1
+        session$sendCustomMessage("updatePaintingsData",
+                                  jsonlite::toJSON(rv$paintings_data, auto_unbox = TRUE))
       }
     }
   })
@@ -3147,7 +3517,7 @@ server <- function(input, output, session) {
       painting_id <- NULL
     }
     
-    if (!is.null(painting_id) && painting_id %in% paintings_data$id) {
+    if (!is.null(painting_id) && painting_id %in% rv$paintings_data$id) {
       rv$filter_painting_id <- as.integer(painting_id)
     } else {
       rv$filter_painting_id <- NULL
@@ -3169,6 +3539,77 @@ server <- function(input, output, session) {
     }
     session$sendCustomMessage("switchTab", "Contribute")
     shinyjs::delay(100, shinyjs::runjs("selectContributeType('landscape');"))
+  })
+  
+  observeEvent(input$nav_to_upload, {
+    session$sendCustomMessage("switchTab", "Contribute")
+    shinyjs::delay(100, shinyjs::runjs("selectContributeType('user_painting');"))
+  })
+  
+  
+  observeEvent(input$view_painting_from_museum, {
+    pid <- input$view_painting_from_museum$id
+    if (is.null(pid)) return()
+    session$sendCustomMessage("switchTab", "Gallery")
+    shinyjs::delay(200, shinyjs::runjs(sprintf("openPaintingDetail(%d);", as.integer(pid))))
+  })
+  
+  
+  # -- ADD MUSEUM SUBMISSION (from detail lightbox) --------------------------
+  observeEvent(input$submit_add_museum, {
+    val <- input$submit_add_museum
+    if (is.null(val) || is.null(val$pid) || is.null(val$museum_name) || val$museum_name == "") {
+      showNotification("Invalid museum submission.", type = "error")
+      return()
+    }
+    
+    tryCatch({
+      new_submission <- data.frame(
+        submission_id = as.character(as.integer(Sys.time())),
+        name = if (!is.null(val$submitter) && val$submitter != "") val$submitter else "Anonymous",
+        email = "",
+        painting_id = as.integer(val$pid),
+        photo_url = "",
+        latitude = NA_real_,
+        longitude = NA_real_,
+        observations = "",
+        submission_date = as.character(Sys.Date()),
+        approval_status = "Pending",
+        submission_type = "add_museum",
+        painting_title = NA_character_,
+        artist_name = NA_character_,
+        painting_year = NA_character_,
+        painting_context = NA_character_,
+        state = NA_character_,
+        region = NA_character_,
+        location_notes = NA_character_,
+        museum_name = as.character(val$museum_name),
+        museum_latitude = if (!is.null(val$museum_lat) && !is.na(val$museum_lat)) as.numeric(val$museum_lat) else NA_real_,
+        museum_longitude = if (!is.null(val$museum_lng) && !is.na(val$museum_lng)) as.numeric(val$museum_lng) else NA_real_,
+        museum_image_url = NA_character_,
+        stringsAsFactors = FALSE
+      )
+      
+      rv$submissions <- rbind(rv$submissions, new_submission)
+      db_insert_submission(new_submission)
+      showNotification("Museum info submitted for review. Thank you!", type = "message")
+    }, error = function(e) {
+      showNotification(paste("Failed to submit:", e$message), type = "error", duration = 10)
+    })
+  })
+  
+  
+  # -- REACTIVE DROPDOWN & FILTER UPDATES ------------------------------------
+  observe({
+    pd <- rv$paintings_data
+    new_choices <- c("Select a painting..." = "", setNames(pd$id, pd$title))
+    updateSelectInput(session, "submit_painting", choices = new_choices)
+    
+    new_artists <- c("All Painters" = "", sort(unique(pd$artist)))
+    updateSelectInput(session, "map_artist_filter", choices = new_artists)
+    
+    session$sendCustomMessage("updatePaintingsData",
+                              jsonlite::toJSON(enriched_paintings(), auto_unbox = TRUE))
   })
   
   
@@ -3211,8 +3652,8 @@ server <- function(input, output, session) {
       }
     }
     
-    cards <- lapply(1:nrow(paintings_data), function(i) {
-      p <- paintings_data[i, ]
+    cards <- lapply(1:nrow(rv$paintings_data), function(i) {
+      p <- rv$paintings_data[i, ]
       
       count_match <- sub_counts[sub_counts$Var1 == as.character(p$id), "Freq"]
       sub_count <- if (length(count_match) > 0) count_match[1] else 0
@@ -3243,9 +3684,11 @@ server <- function(input, output, session) {
                tags$div(class = "painting-card-img-wrap",
                         tags$img(src = p$image_url, class = "painting-image", alt = p$title),
                         tags$div(class = "painting-card-badge", p$year),
-                        if (is_private) {
-                          tags$div(class = "private-collection-badge", HTML("&#128274; Private Collection"))
-                        } else if (museum_count > 0) {
+                        tags$div(
+                          class = paste0("location-status-badge ", if (approved_count > 0) "discovered" else "undiscovered"),
+                          if (approved_count > 0) HTML("&#10003; Discovered") else HTML("Undiscovered")
+                        ),
+                        if (!is_private && museum_count > 0) {
                           tags$div(
                             class = "museum-photo-badge",
                             onclick = sprintf("event.stopPropagation(); openMuseumLightbox('%s', %s);", gsub("'", "\\\\'", p$title), museum_json),
@@ -3262,55 +3705,22 @@ server <- function(input, output, session) {
       )
     })
     
-    # Build cards for approved user-submitted paintings
-    user_paintings <- rv$submissions[rv$submissions$approval_status == "Approved" &
-                                       !is.na(rv$submissions$submission_type) &
-                                       rv$submissions$submission_type == "user_painting", ]
+    add_painting_card <- tags$div(
+      class = "painting-card add-painting-card",
+      `data-title` = "add",
+      `data-artist` = "add",
+      onclick = "Shiny.setInputValue('nav_to_upload', Date.now()); ",
+      tags$div(class = "painting-card-img-wrap",
+               style = "display:flex; align-items:center; justify-content:center; background:var(--glass-bg-light); border:3px dashed var(--glass-border); aspect-ratio:16/10;",
+               tags$div(style = "text-align:center; padding:24px;",
+                        tags$div(style = "font-size:48px; color:var(--terra); margin-bottom:12px;", HTML("&#43;")),
+                        tags$div(style = "font-family:'DM Serif Display',Georgia,serif; font-size:18px; color:var(--text-primary); margin-bottom:6px;", "Add a Painting"),
+                        tags$div(style = "font-size:13px; color:var(--text-secondary);", "Contribute to the collection")
+               )
+      )
+    )
     
-    user_cards <- if (nrow(user_paintings) > 0) {
-      lapply(1:nrow(user_paintings), function(i) {
-        up <- user_paintings[i, ]
-        up_title <- if (!is.na(up$painting_title) && up$painting_title != "") up$painting_title else "Untitled"
-        up_artist <- if (!is.na(up$artist_name) && up$artist_name != "") up$artist_name else "Unknown Artist"
-        up_year <- if (!is.na(up$painting_year) && up$painting_year != "") up$painting_year else ""
-        up_context <- if (!is.na(up$painting_context) && up$painting_context != "") up$painting_context else ""
-        up_state <- if ("state" %in% names(up) && !is.na(up$state) && up$state != "") up$state else ""
-        up_region <- if ("region" %in% names(up) && !is.na(up$region) && up$region != "") up$region else ""
-        up_location_notes <- if ("location_notes" %in% names(up) && !is.na(up$location_notes) && up$location_notes != "") up$location_notes else ""
-        
-        detail_data <- list(
-          title = up_title,
-          artist = up_artist,
-          year = up_year,
-          context = up_context,
-          image_url = up$photo_url,
-          state = up_state,
-          region = up_region,
-          location_notes = up_location_notes,
-          submitter = up$name
-        )
-        detail_json <- URLencode(jsonlite::toJSON(detail_data, auto_unbox = TRUE), reserved = TRUE)
-        
-        tags$div(class = "painting-card",
-                 `data-title` = tolower(up_title),
-                 `data-artist` = tolower(up_artist),
-                 onclick = sprintf("openUserPaintingDetail('%s')", detail_json),
-                 
-                 tags$div(class = "painting-card-img-wrap",
-                          tags$img(src = up$photo_url, class = "painting-image", alt = up_title),
-                          if (up_year != "") tags$div(class = "painting-card-badge", up_year),
-                          tags$div(class = "painting-card-overlay",
-                                   tags$h3(class = "painting-card-overlay-title", up_title),
-                                   tags$div(class = "painting-card-overlay-meta", up_artist)
-                          )
-                 )
-        )
-      })
-    } else {
-      list()
-    }
-    
-    tagList(cards, user_cards)
+    tagList(cards, add_painting_card)
   })
   
   
@@ -3329,9 +3739,9 @@ server <- function(input, output, session) {
     artist_filter <- input$map_artist_filter
     
     filtered_paintings <- if (!is.null(artist_filter) && artist_filter != "") {
-      paintings_data[paintings_data$artist == artist_filter, ]
+      rv$paintings_data[rv$paintings_data$artist == artist_filter, ]
     } else {
-      paintings_data
+      rv$paintings_data
     }
     
     proxy <- leafletProxy("main_map")
@@ -3348,7 +3758,7 @@ server <- function(input, output, session) {
       
       if (nrow(valid_subs) > 0) {
         valid_subs$painting_title <- sapply(valid_subs$painting_id, function(pid) {
-          match_row <- paintings_data[paintings_data$id == pid, ]
+          match_row <- rv$paintings_data[rv$paintings_data$id == pid, ]
           if (nrow(match_row) > 0) match_row$title[1] else "Unknown Location"
         })
         
@@ -3532,10 +3942,12 @@ server <- function(input, output, session) {
     pid <- input$go_to_museum$id
     if (is.null(pid)) return()
     
-    p <- paintings_data[paintings_data$id == pid, ]
+    p <- rv$paintings_data[rv$paintings_data$id == pid, ]
     if (nrow(p) == 0) return()
     p <- p[1, ]
     if (is.na(p$museum_latitude) || is.na(p$museum_longitude)) return()
+    
+    session$sendCustomMessage("switchTab", "Map")
     
     if (!rv$map_filter %in% c("all", "museums")) {
       rv$map_filter <- "all"
@@ -3548,8 +3960,10 @@ server <- function(input, output, session) {
     rv$selected_marker <- pid
     rv$selected_type <- "museum"
     
-    leafletProxy("main_map") %>%
-      flyTo(lng = p$museum_longitude, lat = p$museum_latitude, zoom = max(input$main_map_zoom, 8))
+    shinyjs::delay(300, {
+      leafletProxy("main_map") %>%
+        flyTo(lng = p$museum_longitude, lat = p$museum_latitude, zoom = 10)
+    })
   })
   
   
@@ -3558,7 +3972,7 @@ server <- function(input, output, session) {
     pid <- input$go_to_painting$id
     if (is.null(pid)) return()
     
-    p <- paintings_data[paintings_data$id == pid, ]
+    p <- rv$paintings_data[rv$paintings_data$id == pid, ]
     if (nrow(p) == 0) return()
     p <- p[1, ]
     if (is.na(p$latitude) || is.na(p$longitude)) return()
@@ -3581,7 +3995,7 @@ server <- function(input, output, session) {
     }
     
     if (rv$selected_type == "painting") {
-      p <- paintings_data[paintings_data$id == rv$selected_marker, ]
+      p <- rv$paintings_data[rv$paintings_data$id == rv$selected_marker, ]
       if (nrow(p) == 0) return(NULL)
       p <- p[1, ]
       
@@ -3637,7 +4051,7 @@ server <- function(input, output, session) {
       if (nrow(sub) == 0) return(NULL)
       sub <- sub[1, ]
       
-      painting <- paintings_data[paintings_data$id == sub$painting_id, ]
+      painting <- rv$paintings_data[rv$paintings_data$id == sub$painting_id, ]
       painting_title <- if (nrow(painting) > 0) painting$title[1] else "Unknown Location"
       
       tagList(
@@ -3671,7 +4085,7 @@ server <- function(input, output, session) {
         )
       )
     } else if (rv$selected_type == "museum") {
-      p <- paintings_data[paintings_data$id == rv$selected_marker, ]
+      p <- rv$paintings_data[rv$paintings_data$id == rv$selected_marker, ]
       if (nrow(p) == 0) return(NULL)
       p <- p[1, ]
       
@@ -3705,6 +4119,10 @@ server <- function(input, output, session) {
                  },
                  alt = ifelse(!is.null(p$museum_name) && !is.na(p$museum_name), p$museum_name, p$title)),
         tags$p(class = "map-info-context", paste0("This museum or collection currently holds \"", p$title, "\" by ", p$artist, " (", p$year, ").")),
+        tags$div(class = "map-info-cta",
+                 onclick = sprintf("Shiny.setInputValue('view_painting_from_museum', {id: %d, t: Date.now()});", p$id),
+                 HTML("View Painting Info &rarr;")
+        ),
         if (museum_count > 0) {
           tags$div(class = "map-info-cta",
                    onclick = sprintf("openMuseumLightbox('%s', %s);", gsub("'", "\\\\'", p$title), museum_json),
@@ -3731,8 +4149,8 @@ server <- function(input, output, session) {
       st <- rv$selected_marker
       
       # Filter paintings by state if column exists
-      state_paintings <- if ("state" %in% names(paintings_data)) {
-        paintings_data[!is.na(paintings_data$state) & paintings_data$state == st, ]
+      state_paintings <- if ("state" %in% names(rv$paintings_data)) {
+        rv$paintings_data[!is.na(rv$paintings_data$state) & rv$paintings_data$state == st, ]
       } else {
         data.frame()
       }
@@ -3853,8 +4271,12 @@ server <- function(input, output, session) {
     }
     
     tryCatch({
-      file_data <- readBin(input$submit_photo$datapath, "raw", file.info(input$submit_photo$datapath)$size)
-      base64_image <- paste0("data:image/jpeg;base64,", base64enc::base64encode(file_data))
+      submission_id <- as.character(as.integer(Sys.time()))
+      file_ext <- tolower(tools::file_ext(input$submit_photo$name))
+      if (!(file_ext %in% c("jpg", "jpeg", "png"))) file_ext <- "jpg"
+      if (file_ext == "jpeg") file_ext <- "jpg"
+      
+      photo_url <- upload_to_storage(input$submit_photo$datapath, submission_id, file_ext)
       
       pid <- if (sub_type %in% c("landscape", "museum_photo")) {
         as.integer(input$submit_painting)
@@ -3862,12 +4284,14 @@ server <- function(input, output, session) {
         NA_integer_
       }
       
+      include_museum <- isTRUE(input$include_museum_info) && sub_type == "user_painting"
+      
       new_submission <- data.frame(
-        submission_id = as.character(as.integer(Sys.time())),
+        submission_id = submission_id,
         name = ifelse(input$submit_name == "", "Anonymous", input$submit_name),
         email = input$submit_email,
         painting_id = pid,
-        photo_url = base64_image,
+        photo_url = photo_url,
         latitude = if (sub_type == "landscape") input$submit_latitude else NA_real_,
         longitude = if (sub_type == "landscape") input$submit_longitude else NA_real_,
         observations = input$submit_observations,
@@ -3881,6 +4305,10 @@ server <- function(input, output, session) {
         state = if (sub_type == "user_painting") input$submit_state else NA_character_,
         region = if (sub_type == "user_painting") trimws(input$submit_region) else NA_character_,
         location_notes = if (sub_type == "user_painting") trimws(input$submit_location_notes) else NA_character_,
+        museum_name = if (include_museum) trimws(input$submit_museum_name %||% "") else NA_character_,
+        museum_latitude = if (include_museum && !is.null(input$submit_museum_lat) && !is.na(input$submit_museum_lat)) input$submit_museum_lat else NA_real_,
+        museum_longitude = if (include_museum && !is.null(input$submit_museum_lng) && !is.na(input$submit_museum_lng)) input$submit_museum_lng else NA_real_,
+        museum_image_url = NA_character_,
         stringsAsFactors = FALSE
       )
       
@@ -3906,7 +4334,8 @@ server <- function(input, output, session) {
   # -- COMPARISON GALLERY ----------------------------------------------------
   output$comparison_gallery <- renderUI({
     rv$approved_trigger
-    approved <- rv$submissions[rv$submissions$approval_status == "Approved", ]
+    approved <- rv$submissions[rv$submissions$approval_status == "Approved" &
+                                 (is.na(rv$submissions$submission_type) | rv$submissions$submission_type == "landscape"), ]
     filter_id <- rv$filter_painting_id
     
     if (nrow(approved) == 0) {
@@ -3915,7 +4344,7 @@ server <- function(input, output, session) {
     
     if (!is.null(filter_id)) {
       filtered <- approved[approved$painting_id == filter_id, ]
-      filter_painting <- paintings_data[paintings_data$id == filter_id, ]
+      filter_painting <- rv$paintings_data[rv$paintings_data$id == filter_id, ]
       filter_name <- if (nrow(filter_painting) > 0) filter_painting$title[1] else "Unknown"
     } else {
       filtered <- approved
@@ -3934,7 +4363,8 @@ server <- function(input, output, session) {
     
     cards <- lapply(1:nrow(filtered), function(i) {
       sub <- filtered[i, ]
-      painting <- paintings_data[paintings_data$id == sub$painting_id, ]
+      painting <- rv$paintings_data[rv$paintings_data$id == sub$painting_id, ]
+      if (nrow(painting) == 0) return(NULL)
       
       tags$div(class = "comparison-thumb",
                `data-submitter` = tolower(sub$name),
@@ -4002,7 +4432,7 @@ server <- function(input, output, session) {
     
     display$painting_id <- sapply(display$painting_id, function(pid) {
       if (is.na(pid)) return("(user painting)")
-      match_row <- paintings_data[paintings_data$id == pid, ]
+      match_row <- rv$paintings_data[rv$paintings_data$id == pid, ]
       if (nrow(match_row) > 0) match_row$title[1] else as.character(pid)
     })
     names(display)[names(display) == "painting_id"] <- "painting"
@@ -4023,9 +4453,40 @@ server <- function(input, output, session) {
       filtered <- admin_filtered()
       if (idx > nrow(filtered)) return()
       sid <- filtered[idx, "submission_id"]
+      sub_row <- filtered[idx, ]
       
       db_update_status(sid, "Approved")
       rv$submissions[rv$submissions$submission_id == sid, "approval_status"] <- "Approved"
+      
+      if (!is.na(sub_row$submission_type) && sub_row$submission_type == "user_painting") {
+        tryCatch({
+          new_pid <- db_promote_to_painting(sub_row)
+          rv$submissions[rv$submissions$submission_id == sid, "painting_id"] <- new_pid
+          rv$paintings_data <- db_load_paintings()
+          session$sendCustomMessage("updatePaintingsData",
+                                    jsonlite::toJSON(enriched_paintings(), auto_unbox = TRUE))
+          showNotification(paste0("Painting promoted to collection (ID: ", new_pid, ")"), type = "message")
+        }, error = function(e) {
+          showNotification(paste0("Approved but failed to promote: ", e$message), type = "error", duration = 10)
+        })
+      } else if (!is.na(sub_row$submission_type) && sub_row$submission_type == "add_museum") {
+        tryCatch({
+          db_update_painting_museum(
+            painting_id = sub_row$painting_id,
+            museum_name = sub_row$museum_name,
+            museum_lat = sub_row$museum_latitude,
+            museum_lng = sub_row$museum_longitude,
+            museum_img = NA_character_
+          )
+          rv$paintings_data <- db_load_paintings()
+          session$sendCustomMessage("updatePaintingsData",
+                                    jsonlite::toJSON(enriched_paintings(), auto_unbox = TRUE))
+          showNotification("Museum info added to painting.", type = "message")
+        }, error = function(e) {
+          showNotification(paste0("Approved but failed to update museum: ", e$message), type = "error", duration = 10)
+        })
+      }
+      
       rv$approved_trigger <- rv$approved_trigger + 1
       showNotification("Approved!", type = "message")
     }
@@ -4066,7 +4527,10 @@ server <- function(input, output, session) {
   # -- REFRESH ADMIN DATA ---------------------------------------------------
   observeEvent(input$refresh_admin, {
     rv$submissions <- db_load_submissions()
+    rv$paintings_data <- db_load_paintings()
     rv$approved_trigger <- rv$approved_trigger + 1
+    session$sendCustomMessage("updatePaintingsData",
+                              jsonlite::toJSON(rv$paintings_data, auto_unbox = TRUE))
     showNotification("Data refreshed from database!", type = "message")
   })
 }

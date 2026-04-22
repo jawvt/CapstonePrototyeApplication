@@ -5,7 +5,7 @@ account: capstonetestproject
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 17023033
-bundleId: 11791043
+bundleId: 11855335
 url: https://capstonetestproject.shinyapps.io/application/
 version: 1
 asMultiple: FALSE
