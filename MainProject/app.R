@@ -1443,9 +1443,9 @@ body.light-mode .location-status-badge.undiscovered {
 /* --- Contribute Landing Cards ---------------------------- */
 .contribute-landing {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 24px;
-  max-width: 960px;
+  max-width: 760px;
   margin: 0 auto;
   padding: 0 24px 60px;
 }
