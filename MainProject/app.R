@@ -4198,7 +4198,8 @@ server <- function(input, output, session) {
       
       # Filter paintings by state if column exists
       state_paintings <- if ("state" %in% names(rv$paintings_data)) {
-        rv$paintings_data[!is.na(rv$paintings_data$state) & rv$paintings_data$state == st, ]
+        rv$paintings_data[!is.na(rv$paintings_data$state) & 
+                            trimws(rv$paintings_data$state) == trimws(st), ]
       } else {
         data.frame()
       }
