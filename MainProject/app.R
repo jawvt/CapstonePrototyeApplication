@@ -2399,47 +2399,47 @@ body.light-mode .private-collection-badge {
 
 /* --- Map Filter Dropdowns ------------------------- */
 .artist-filter-wrap select {
-  padding: 7px 14px !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  border-radius: 50px !important;
-  background: var(--glass-bg-light) !important;
-  border: 1px solid var(--glass-border-subtle) !important;
-  color: var(--text-secondary) !important;
-  font-family: 'DM Sans', sans-serif !important;
-  cursor: pointer !important;
-  transition: all 0.3s var(--ease) !important;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 50px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border-subtle);
+  color: var(--text-secondary);
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s var(--ease);
   appearance: none !important;
   -webkit-appearance: none !important;
-  outline: none !important;
+  outline: none;
 }
 
 .artist-filter-wrap select:hover {
-  background: var(--glass-bg) !important;
-  border-color: var(--glass-border) !important;
-  color: var(--text-primary) !important;
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  color: var(--text-primary);
 }
 
 .artist-filter-wrap select:focus {
-  border-color: var(--terra) !important;
-  box-shadow: 0 0 12px var(--terra-glow) !important;
-  color: var(--text-primary) !important;
+  border-color: var(--terra);
+  box-shadow: 0 0 12px var(--terra-glow);
+  color: var(--text-primary);
 }
 
 .artist-filter-wrap select option {
-  background: var(--surface-dark-mid) !important;
-  color: var(--text-primary) !important;
+  background: var(--surface-dark-mid);
+  color: var(--text-primary);
 }
 
 body.light-mode .artist-filter-wrap select {
-  background: var(--glass-bg-light) !important;
-  color: var(--text-secondary) !important;
-  border-color: var(--glass-border-subtle) !important;
+  background: var(--glass-bg-light);
+  color: var(--text-secondary);
+  border-color: var(--glass-border-subtle);
 }
 
 body.light-mode .artist-filter-wrap select option {
-  background: var(--surface-dark-mid) !important;
-  color: var(--text-primary) !important;
+  background: var(--surface-dark-mid);
+  color: var(--text-primary);
 }
 "
 
