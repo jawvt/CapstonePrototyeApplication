@@ -278,6 +278,7 @@ app_css <- "
    - Mobile Tab Bar
    - Map Scroll Hint
    - Gallery Badges
+   - Map Filter Dropdowns
    ============================================== */
 
 /* --- CSS Variables ---------------------------------------- */
@@ -2394,6 +2395,51 @@ body.light-mode .private-collection-badge {
   font-size: 13px;
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* --- Map Filter Dropdowns ------------------------- */
+.artist-filter-wrap select {
+  padding: 7px 14px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  border-radius: 50px !important;
+  background: var(--glass-bg-light) !important;
+  border: 1px solid var(--glass-border-subtle) !important;
+  color: var(--text-secondary) !important;
+  font-family: 'DM Sans', sans-serif !important;
+  cursor: pointer !important;
+  transition: all 0.3s var(--ease) !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  outline: none !important;
+}
+
+.artist-filter-wrap select:hover {
+  background: var(--glass-bg) !important;
+  border-color: var(--glass-border) !important;
+  color: var(--text-primary) !important;
+}
+
+.artist-filter-wrap select:focus {
+  border-color: var(--terra) !important;
+  box-shadow: 0 0 12px var(--terra-glow) !important;
+  color: var(--text-primary) !important;
+}
+
+.artist-filter-wrap select option {
+  background: var(--surface-dark-mid) !important;
+  color: var(--text-primary) !important;
+}
+
+body.light-mode .artist-filter-wrap select {
+  background: var(--glass-bg-light) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--glass-border-subtle) !important;
+}
+
+body.light-mode .artist-filter-wrap select option {
+  background: var(--surface-dark-mid) !important;
+  color: var(--text-primary) !important;
 }
 "
 
