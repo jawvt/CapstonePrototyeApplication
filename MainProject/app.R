@@ -4229,6 +4229,21 @@ server <- function(input, output, session) {
                     "No paintings catalogued for this state yet. Upload one in the Contribute tab!"))
       }
       
+      lapply(1:nrow(state_subs), function(i) {
+        sub <- state_subs[i, ]
+        tags$div(
+          style = "display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--glass-border-subtle);",
+          tags$img(src = sub$photo_url, style = "width: 60px; height: 40px; object-fit: cover; border-radius: 8px; flex-shrink: 0;"),
+          tags$div(
+            tags$div(style = "font-weight: 700; font-size: 14px; color: var(--text-primary);", "User Photo"),
+            tags$div(style = "font-size: 12px; color: var(--text-muted);", paste0("Submitted by ", sub$name, " on ", sub$submission_date))
+          )
+        )
+      })
+    } else {
+      list()
+    }
+      
       tagList(
         tags$div(class = "map-info-header",
                  tags$div(class = "map-info-dot painting"),
