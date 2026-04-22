@@ -3748,8 +3748,9 @@ server <- function(input, output, session) {
     
     proxy %>% clearGroup("submissions")
     if (filter %in% c("all", "submissions") && nrow(approved) > 0) {
-      valid_subs <- approved[!is.na(approved$latitude) & !is.na(approved$longitude), ]
-      valid_subs <- valid_subs[is.na(valid_subs$submission_type) | valid_subs$submission_type != "museum_photo", ]
+      valid_subs <- approved[
+        !is.na(approved$latitude) & !is.na(approved$longitude) &
+          (is.na(approved$submission_type) | approved$submission_type == "landscape"),]
       
       if (!is.null(artist_filter) && artist_filter != "" && nrow(valid_subs) > 0) {
         artist_painting_ids <- filtered_paintings$id
