@@ -4228,7 +4228,8 @@ server <- function(input, output, session) {
         list(tags$p(style = "color: var(--text-muted); font-size: 13px; font-style: italic;",
                     "No paintings catalogued for this state yet. Upload one in the Contribute tab!"))
       }
-      
+  
+      submission_cards <- if (nrow(state_subs) > 0) {    
       lapply(1:nrow(state_subs), function(i) {
         sub <- state_subs[i, ]
         tags$div(
