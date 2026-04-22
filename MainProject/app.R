@@ -2488,13 +2488,15 @@ ui <- page_navbar(
                       selectInput("map_artist_filter", NULL,
                                   choices = c("All Painters" = "", sort(unique(paintings_data$artist))),
                                   selected = "",
-                                  width = "180px")
+                                  width = "180px",
+                                  selectize = FALSE)
              ),
              tags$div(class = "artist-filter-wrap",
                       selectInput("map_state_filter", NULL,
                                   choices = c("All States" = "", sort(unique(state.name))),
                                   selected = "",
-                                  width = "160px")
+                                  width = "160px",
+                                  selectize = FALSE)
              )
     ),
     
