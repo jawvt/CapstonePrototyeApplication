@@ -7,6 +7,10 @@ clean up github repository
 
 Make CSS file to clean up code (once we are done)
 
-add a glowing halo around a certain point when the view museam or view painting button is clicked from the pop up to differentiate the point from other points nearby
 
 Multiple paitnings could be in a museum so figure that out
+
+
+Need old paintings into storage of supabase, only newly submitter ones are. 
+Why arent contemporary photo submissions showing up now?
+Fix 
